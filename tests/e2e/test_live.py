@@ -83,13 +83,6 @@ def test_write_does_not_clobber_without_permission(workspace: str) -> None:
     assert call(tools.handle_read_file, path=path)["content"] == "replacement"
 
 
-def test_search_finds_a_file_it_just_created(workspace: str) -> None:
-    marker = workspace.strip("/")
-    call(tools.handle_write_file, path=f"{workspace}/{marker}-needle.txt", content="x")
-    found = call(tools.handle_search, query=f"{marker}-needle", path=workspace)
-    assert [item["name"] for item in found["items"]] == [f"{marker}-needle.txt"], found
-
-
 def test_upload_and_download_round_trip(workspace: str, tmp_path) -> None:
     source = tmp_path / "payload.bin"
     source.write_bytes(bytes(range(256)))

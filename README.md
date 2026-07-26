@@ -8,17 +8,15 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Your Yandex Disk, handed to the agent.** It can find the file you half-remember, read it
-into the conversation, write the answer back, and give you a share link — without you
-opening a browser.
+**Your Yandex Disk, handed to the agent.** It can walk the folders, read a file into the
+conversation, write the answer back, and give you a share link — without you opening a
+browser.
 
-> "Find the invoice from March on my Disk and read me the total."
+> "Read me the March invoice in /Documents/Accounting."
 > "Save these meeting notes to /Notes/2026/ and give me a link."
 > "What's eating my Disk space? Move the old videos into /Archive."
 > "Restore that file I deleted this morning."
 
-- 🔎 **Search that works without a search API** — Yandex Disk has none, so the plugin scans
-  the disk-wide file index and filters it, paged and bounded.
 - 🔒 **`YANDEX_DISK_ROOT` sandboxes the agent to one folder** — every path is checked against
   it, including ones the model invents and ones it copies back from an earlier result.
 - 🛟 **Nothing is overwritten or destroyed by accident** — writes, copies and moves refuse an
@@ -26,6 +24,8 @@ opening a browser.
   bin can be restored from.
 - 🎚 **`YANDEX_DISK_ACTIONS` decides what the agent may do at all** — a tool outside the
   allow-list is never registered, so it cannot be called or talked into being called.
+- 📂 **Fourteen tools over one credential** — browse, read, write, upload, download, copy,
+  move, share and restore, all through the REST API.
 - 🔑 **One OAuth token, nothing proxied** — the plugin talks to `cloud-api.yandex.net`
   directly; no third-party service sees your files or your token.
 
@@ -59,7 +59,6 @@ Restart Hermes and ask it: **"How much space is left on my Yandex Disk?"**
 |---|---|
 | `yadisk_disk_info` | Quota, used and bin space, account login |
 | `yadisk_list` | List a folder, or show one file's metadata |
-| `yadisk_search` | Find files anywhere on the disk by name substring |
 | `yadisk_read_file` | Read a text file's contents into the conversation |
 | `yadisk_trash_list` | What is in the bin, and where each item came from |
 | `yadisk_download` | Save a file from the Disk to the local machine |
@@ -114,7 +113,7 @@ YANDEX_DISK_ACTIONS=list,read_file  # exactly two tools
 
 | Group | Tools |
 |---|---|
-| `read` | `disk_info`, `list`, `search`, `read_file`, `trash_list` |
+| `read` | `disk_info`, `list`, `read_file`, `trash_list` |
 | `download` | `download` (writes to the **local** machine) |
 | `write` | `mkdir`, `write_file`, `upload`, `copy`, `move`, `trash_restore` |
 | `share` | `publish` |
@@ -162,8 +161,8 @@ so you get `~/.hermes/plugins/yandex-disk/plugin.yaml`, then enable it the same 
 ## Why REST and not WebDAV
 
 Yandex Disk exposes both a REST API and a WebDAV endpoint. This plugin is REST-only, because
-WebDAV covers strictly less: no bin, no public links, no flat file index to search over, and
-no reporting for the deferred operations that large folder copies and deletes turn into.
+WebDAV covers strictly less: no bin, no public links, and no reporting for the deferred
+operations that large folder copies and deletes turn into.
 rclone's Yandex backend made the same call. The one thing WebDAV adds — an app-password login
 — is not worth a second stored credential for capabilities the REST API already has.
 

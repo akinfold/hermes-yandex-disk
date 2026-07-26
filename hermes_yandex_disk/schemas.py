@@ -71,50 +71,6 @@ LIST = _schema(
     [],
 )
 
-SEARCH = _schema(
-    "yadisk_search",
-    "Find files anywhere on Yandex Disk by a substring of their name. Searches files "
-    "only, not folders — use yadisk_list to explore the folder tree. Yandex Disk has "
-    "no server-side search, so this scans the disk-wide file index.",
-    {
-        "query": {
-            "type": "string",
-            "description": "Case-insensitive substring of the file name, e.g. 'invoice' or '.pdf'.",
-        },
-        "path": {
-            "type": "string",
-            "description": "Optional folder to restrict the search to, including subfolders.",
-        },
-        "media_type": {
-            "type": "string",
-            "enum": [
-                "audio",
-                "backup",
-                "book",
-                "compressed",
-                "data",
-                "development",
-                "diskimage",
-                "document",
-                "encoded",
-                "executable",
-                "flash",
-                "font",
-                "image",
-                "settings",
-                "spreadsheet",
-                "text",
-                "unknown",
-                "video",
-                "web",
-            ],
-            "description": "Restrict to one Yandex Disk media type.",
-        },
-        "limit": {"type": "integer", "description": "Max matches to return (default 20)."},
-    },
-    ["query"],
-)
-
 READ_FILE = _schema(
     "yadisk_read_file",
     "Read the contents of a text file stored on Yandex Disk and return it as text. "

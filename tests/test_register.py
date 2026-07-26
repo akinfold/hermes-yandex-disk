@@ -67,7 +67,6 @@ def test_read_only_deployments_never_see_a_mutating_tool(
     assert names == [
         "yadisk_disk_info",
         "yadisk_list",
-        "yadisk_search",
         "yadisk_read_file",
         "yadisk_trash_list",
     ]

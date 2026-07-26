@@ -22,13 +22,9 @@ MAX_DOWNLOAD_BYTES_ENV = "YANDEX_DISK_MAX_DOWNLOAD_BYTES"
 
 DEFAULT_MAX_READ_BYTES = 1024 * 1024
 DEFAULT_MAX_DOWNLOAD_BYTES = 256 * 1024 * 1024
-#: Hard ceiling on how many entries the flat file index is scanned for a search.
-DEFAULT_SEARCH_SCAN = 5000
-
 ACTIONS: tuple[str, ...] = (
     "disk_info",
     "list",
-    "search",
     "read_file",
     "trash_list",
     "download",
@@ -45,7 +41,7 @@ ACTIONS: tuple[str, ...] = (
 
 ACTION_GROUPS: dict[str, frozenset[str]] = {
     "all": frozenset(ACTIONS),
-    "read": frozenset({"disk_info", "list", "search", "read_file", "trash_list"}),
+    "read": frozenset({"disk_info", "list", "read_file", "trash_list"}),
     "download": frozenset({"download"}),
     "write": frozenset({"mkdir", "write_file", "upload", "copy", "move", "trash_restore"}),
     "share": frozenset({"publish"}),

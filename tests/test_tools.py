@@ -53,52 +53,6 @@ def test_list_reports_a_missing_folder(disk: FakeDisk) -> None:
     assert "not found" in payload(tools.handle_list({"path": "/nope"}))["error"].lower()
 
 
-def test_search_matches_a_name_substring(disk: FakeDisk) -> None:
-    disk.add_file("disk:/Docs/Invoice-2026.pdf", b"x")
-    disk.add_file("disk:/Docs/receipt.txt", b"x")
-    result = payload(tools.handle_search({"query": "invoice"}))
-    assert [i["path"] for i in result["items"]] == ["disk:/Docs/Invoice-2026.pdf"]
-    assert result["truncated"] is False
-
-
-def test_search_can_be_scoped_to_a_folder(disk: FakeDisk) -> None:
-    disk.add_file("disk:/A/report.txt", b"x")
-    disk.add_file("disk:/B/report.txt", b"x")
-    result = payload(tools.handle_search({"query": "report", "path": "/A"}))
-    assert [i["path"] for i in result["items"]] == ["disk:/A/report.txt"]
-
-
-def test_search_scope_does_not_match_a_sibling_by_prefix(disk: FakeDisk) -> None:
-    disk.add_file("disk:/Archive2/report.txt", b"x")
-    result = payload(tools.handle_search({"query": "report", "path": "/Archive"}))
-    assert result["items"] == []
-
-
-def test_search_on_an_empty_disk(disk: FakeDisk) -> None:
-    result = payload(tools.handle_search({"query": "anything"}))
-    assert result == {"query": "anything", "scanned": 0, "truncated": False, "items": []}
-
-
-def test_search_needs_a_query(disk: FakeDisk) -> None:
-    assert "non-empty" in payload(tools.handle_search({"query": "  "}))["error"]
-
-
-def test_search_stops_at_the_scan_ceiling(monkeypatch: pytest.MonkeyPatch, disk: FakeDisk) -> None:
-    monkeypatch.setattr(config, "DEFAULT_SEARCH_SCAN", 2)
-    for index in range(5):
-        disk.add_file(f"disk:/file{index}.txt", b"x")
-    result = payload(tools.handle_search({"query": "nomatch"}))
-    assert result["scanned"] == 2
-    assert result["truncated"] is True
-
-
-def test_search_honours_the_limit(disk: FakeDisk) -> None:
-    for index in range(5):
-        disk.add_file(f"disk:/report{index}.txt", b"x")
-    result = payload(tools.handle_search({"query": "report", "limit": 2}))
-    assert len(result["items"]) == 2
-
-
 def test_read_file(disk: FakeDisk) -> None:
     disk.add_file("disk:/notes.md", "привет\n".encode())
     result = payload(tools.handle_read_file({"path": "/notes.md"}))
@@ -361,13 +315,6 @@ def test_traversal_out_of_the_sandbox_is_refused(sandboxed: None, disk: FakeDisk
         "outside the configured root"
         in payload(tools.handle_delete({"path": "../Private/secrets.txt"}))["error"]
     )
-
-
-def test_search_stays_inside_the_sandbox(sandboxed: None, disk: FakeDisk) -> None:
-    disk.add_file("disk:/Hermes/report.txt", b"x")
-    disk.add_file("disk:/Private/report.txt", b"x")
-    result = payload(tools.handle_search({"query": "report"}))
-    assert [i["path"] for i in result["items"]] == ["disk:/report.txt"]
 
 
 def test_the_bin_only_shows_items_deleted_from_the_sandbox(sandboxed: None, disk: FakeDisk) -> None:

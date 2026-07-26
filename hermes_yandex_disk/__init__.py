@@ -1,6 +1,6 @@
 """Yandex Disk plugin for Hermes Agent.
 
-Gives the agent the user's Yandex Disk: browse and search it, read files into the
+Gives the agent the user's Yandex Disk: browse it, read files into the
 conversation, write and upload new ones, move things around, share public links,
 and manage the bin.
 
@@ -15,7 +15,7 @@ from typing import Any
 
 from . import config, schemas, tools
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = ["__version__", "register"]
 
@@ -30,7 +30,6 @@ _TOOLS: tuple[tuple[str, dict[str, Any], Any, str, str], ...] = (
         "💽",
     ),
     ("list", schemas.LIST, tools.handle_list, "List a Yandex Disk folder or file.", "📂"),
-    ("search", schemas.SEARCH, tools.handle_search, "Find files on Yandex Disk by name.", "🔎"),
     (
         "read_file",
         schemas.READ_FILE,

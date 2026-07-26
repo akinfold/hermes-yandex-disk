@@ -156,48 +156,6 @@ def handle_list(client: YandexDiskClient, args: dict[str, Any], root: str) -> di
     return result
 
 
-def _search_prefix(args: dict[str, Any], root: str) -> str:
-    scope = _text(args, "path")
-    if scope:
-        return resolve(scope, root)
-    return f"{DISK_SCHEME}{root}" if root else ""
-
-
-def _matches(item: dict[str, Any], needle: str, prefix: str) -> bool:
-    path = str(item.get("path", ""))
-    if prefix and not (path == prefix or path.startswith(prefix + "/")):
-        return False
-    return needle in str(item.get("name", "")).lower()
-
-
-@tool_handler
-def handle_search(client: YandexDiskClient, args: dict[str, Any], root: str) -> dict[str, Any]:
-    needle = _text(args, "query").lower()
-    if not needle:
-        return {"error": "query must be a non-empty substring of the file name."}
-    limit = _clamp(args.get("limit"), 20, 100)
-    prefix = _search_prefix(args, root)
-    media_type = _text(args, "media_type") or None
-
-    found: list[dict[str, Any]] = []
-    scanned = 0
-    while scanned < config.DEFAULT_SEARCH_SCAN and len(found) < limit:
-        page = min(200, config.DEFAULT_SEARCH_SCAN - scanned)
-        items = client.list_all_files(limit=page, offset=scanned, media_type=media_type)
-        if not items:
-            break
-        scanned += len(items)
-        found.extend(_shape(i, root) for i in items if _matches(i, needle, prefix))
-        if len(items) < page:
-            break
-    return {
-        "query": needle,
-        "scanned": scanned,
-        "truncated": scanned >= config.DEFAULT_SEARCH_SCAN,
-        "items": found[:limit],
-    }
-
-
 @tool_handler
 def handle_read_file(client: YandexDiskClient, args: dict[str, Any], root: str) -> dict[str, Any]:
     path = resolve(args.get("path"), root)
@@ -440,7 +398,6 @@ __all__ = [
     "handle_move",
     "handle_publish",
     "handle_read_file",
-    "handle_search",
     "handle_trash_empty",
     "handle_trash_list",
     "handle_trash_restore",

@@ -1,13 +1,12 @@
 # Hermes Agent plugin manifest.
 name: yandex-disk
-version: "0.1.0"
+version: "0.2.0"
 description: "Browse, read, write and share files on Yandex Disk. Requires YANDEX_DISK_OAUTH_TOKEN."
 author: akinfold
 kind: standalone
 provides_tools:
   - yadisk_disk_info
   - yadisk_list
-  - yadisk_search
   - yadisk_read_file
   - yadisk_trash_list
   - yadisk_download

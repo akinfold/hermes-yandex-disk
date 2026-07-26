@@ -206,20 +206,6 @@ class YandexDiskClient:
         params = {"path": path, "limit": limit, "offset": offset, "sort": sort, "fields": fields}
         return self._json("GET", "/resources", params=params)
 
-    def list_all_files(
-        self,
-        *,
-        limit: int = 200,
-        offset: int = 0,
-        media_type: str | None = None,
-        fields: str | None = None,
-    ) -> list[dict[str, Any]]:
-        """One page of the flat, disk-wide file index (files only, no folders)."""
-        params = {"limit": limit, "offset": offset, "media_type": media_type, "fields": fields}
-        payload = self._json("GET", "/resources/files", params=params)
-        items = payload.get("items")
-        return items if isinstance(items, list) else []
-
     # -- structure --------------------------------------------------------
 
     def mkdir(self, path: str) -> dict[str, Any]:
