@@ -1,0 +1,58 @@
+name: Build release artifacts
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    outputs:
+      version:
+        description: "Project version that was built"
+        value: ${{ jobs.build.outputs.version }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: python -m pip install build
+      - name: Read project version
+        id: version
+        run: |
+          v=$(python -c "import tomllib,pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - name: Build wheel and sdist
+        run: python -m build
+      - name: Assemble drop-in plugin archive
+        run: |
+          set -euo pipefail
+          v="${{ steps.version.outputs.version }}"
+          rm -rf dropin && mkdir -p dropin/yandex-disk
+          cp -r hermes_yandex_disk/. dropin/yandex-disk/
+          find dropin -name '__pycache__' -type d -prune -exec rm -rf {} +
+          ( cd dropin && zip -r "../dist/hermes-yandex-disk-plugin-${v}.zip" yandex-disk )
+      - name: Verify the wheel imports and exposes register()
+        run: |
+          set -euo pipefail
+          python -m pip install dist/*.whl
+          python - <<'PY'
+          import hermes_yandex_disk as p
+          from importlib.metadata import entry_points
+          assert callable(p.register), "register() is missing"
+          eps = [e for e in entry_points(group="hermes_agent.plugins") if e.name == "yandex-disk"]
+          assert eps, "the hermes_agent.plugins entry point is missing"
+          assert eps[0].load() is p, "the entry point does not resolve to the module"
+          print("OK", p.__version__)
+          PY
+      - uses: actions/upload-artifact@v5
+        with:
+          name: release-artifacts
+          path: dist/*
+          if-no-files-found: error

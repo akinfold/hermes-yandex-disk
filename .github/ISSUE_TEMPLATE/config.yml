@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: How do I get a Yandex Disk OAuth token?
+    url: https://yandex.ru/dev/disk/poligon/
+    about: Sign in as the account you want the agent to use and issue a debug token.
+  - name: Yandex Disk REST API reference
+    url: https://yandex.ru/dev/disk-api/doc/en/reference/all-files
+    about: What the API can and cannot do — check here before filing a feature request.
+  - name: Hermes Agent documentation
+    url: https://github.com/NousResearch/hermes-agent
+    about: Installing plugins, ~/.hermes/config.yaml, and the ~/.hermes/.env file.

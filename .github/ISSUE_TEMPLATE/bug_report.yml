@@ -1,0 +1,61 @@
+name: Bug report
+description: Something the plugin does wrong
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not paste your OAuth token, or any part of it, anywhere in this issue.**
+        If an output contains one, replace it with `***` before pasting.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you asked the agent for, and what it did instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Ask the agent to ...
+        2. It calls yadisk_... with ...
+        3. The result is ...
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: The tool's JSON output
+      description: The full result the tool returned, credentials redacted.
+      render: text
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: hermes-version
+    attributes:
+      label: Hermes Agent version
+      placeholder: "0.19.x"
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "3.12.3"
+  - type: input
+    id: actions
+    attributes:
+      label: YANDEX_DISK_ACTIONS
+      description: The value you have set, or "unset".
+      placeholder: unset
+  - type: input
+    id: root
+    attributes:
+      label: YANDEX_DISK_ROOT
+      description: The value you have set, or "unset".
+      placeholder: unset

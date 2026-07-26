@@ -1,0 +1,70 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hermes-yandex-disk"
+version = "0.1.0"
+description = "Yandex Disk plugin for Hermes Agent — browse, read, write and share files on Yandex Disk."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11,<3.14"
+authors = [{ name = "Roman Akinfeev" }]
+keywords = ["hermes", "hermes-agent", "plugin", "yandex", "yandex-disk", "cloud-storage"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "httpx>=0.24",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4", "pytest-cov>=4.1", "ruff>=0.6", "radon>=6.0"]
+
+[project.urls]
+Homepage = "https://github.com/akinfold/hermes-yandex-disk"
+Repository = "https://github.com/akinfold/hermes-yandex-disk"
+Issues = "https://github.com/akinfold/hermes-yandex-disk/issues"
+
+# Value is the MODULE — Hermes does getattr(module, "register") itself.
+[project.entry-points."hermes_agent.plugins"]
+yandex-disk = "hermes_yandex_disk"
+
+[tool.hatch.build.targets.wheel]
+packages = ["hermes_yandex_disk"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"hermes_yandex_disk/plugin.yaml" = "hermes_yandex_disk/plugin.yaml"
+"hermes_yandex_disk/py.typed" = "hermes_yandex_disk/py.typed"
+
+[tool.hatch.build.targets.sdist]
+include = ["hermes_yandex_disk", "tests", "README.md", "LICENSE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["e2e: live tests that hit the real Yandex Disk API (deselected by default)."]
+addopts = "-m 'not e2e'"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+# Project root, so hermes_yandex_disk resolves as first-party for import sorting.
+src = ["."]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "C4", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# B011: bare `assert False` reads fine in a test.
+# RUF001: non-ASCII is test *data* here — the plugin must handle Cyrillic file names.
+"tests/*" = ["B011", "RUF001"]
+
+[tool.ruff.format]
+quote-style = "double"

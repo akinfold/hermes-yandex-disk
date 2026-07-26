@@ -1,0 +1,53 @@
+# On tag v*. Publishing to PyPI is opt-in: set the repository variable
+# PUBLISH_TO_PYPI=true and configure a PyPI Trusted Publisher for the `pypi`
+# environment and this workflow filename. No API token is involved.
+name: Publish release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/release-build.yml
+
+  github-release:
+    name: GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          name: release-artifacts
+          path: dist
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --repo "$GITHUB_REPOSITORY" --title "${GITHUB_REF_NAME}" --generate-notes
+
+  pypi-publish:
+    name: Publish to PyPI
+    needs: build
+    if: vars.PUBLISH_TO_PYPI == 'true'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: release-artifacts
+          path: dist
+      - name: Keep only Python distributions
+        run: rm -f dist/*.zip
+      - uses: pypa/gh-action-pypi-publish@release/v1

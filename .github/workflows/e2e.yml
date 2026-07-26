@@ -1,0 +1,36 @@
+# Manual live E2E. These tests create, publish and permanently delete real files
+# on the account whose token lives in the `yandex-disk-e2e` environment — point it
+# at a throwaway Yandex account, never a personal one.
+name: E2E (live)
+
+on:
+  workflow_dispatch:
+    inputs:
+      install_hermes:
+        description: "Also install hermes-agent, so the real get_provider_env is exercised"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Live end-to-end tests
+    runs-on: ubuntu-latest
+    environment: yandex-disk-e2e
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e '.[dev]'
+      - name: Install hermes-agent (optional)
+        if: ${{ inputs.install_hermes }}
+        continue-on-error: true
+        run: python -m pip install hermes-agent
+      - name: Run live E2E tests
+        env:
+          YANDEX_DISK_OAUTH_TOKEN: ${{ secrets.YANDEX_DISK_OAUTH_TOKEN }}
+          YANDEX_DISK_E2E_LOGIN: ${{ secrets.YANDEX_DISK_E2E_LOGIN }}
+        run: python -m pytest -m e2e -v

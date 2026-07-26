@@ -1,0 +1,32 @@
+name: Feature request
+description: A capability the plugin should have
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to get the agent to do, and where it falls short today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+      description: A new tool, a new argument, different behaviour — as concretely as you can.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you have considered
+  - type: checkboxes
+    id: feasibility
+    attributes:
+      label: Feasibility
+      options:
+        - label: >-
+            I have checked that the Yandex Disk REST API can actually do this. It has no
+            server-side search, no partial/ranged writes, and no per-file sharing permissions,
+            so those cannot be added here.
+          required: false
