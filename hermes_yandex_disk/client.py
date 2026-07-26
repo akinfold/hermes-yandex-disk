@@ -206,6 +206,34 @@ class YandexDiskClient:
         params = {"path": path, "limit": limit, "offset": offset, "sort": sort, "fields": fields}
         return self._json("GET", "/resources", params=params)
 
+    def search(
+        self,
+        query: str,
+        *,
+        limit: int = 20,
+        offset: int = 0,
+        media_type: str | None = None,
+        sort: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """One page of a server-side, name-based search over the whole disk.
+
+        Returns files only, ranked by relevance. Yandex restricts this endpoint
+        to certain applications, so a token without that permission gets a 403
+        (surfaced as a :class:`YandexDiskError` with ``status == 403``). The
+        endpoint has no working folder scope — ``dir``/``path`` are ignored — so
+        any confinement is the caller's job.
+        """
+        params = {
+            "query": query,
+            "limit": limit,
+            "offset": offset,
+            "media_type": media_type,
+            "sort": sort,
+        }
+        payload = self._json("GET", "/resources/search", params=params)
+        items = payload.get("items")
+        return items if isinstance(items, list) else []
+
     # -- structure --------------------------------------------------------
 
     def mkdir(self, path: str) -> dict[str, Any]:

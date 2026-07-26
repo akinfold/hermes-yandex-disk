@@ -46,6 +46,7 @@ _RESOURCE_FIELDS = (
     "public_url",
     "origin_path",
     "deleted",
+    "search_scope",  # only present on search hits: "name" or the content that matched
 )
 
 
@@ -154,6 +155,70 @@ def handle_list(client: YandexDiskClient, args: dict[str, Any], root: str) -> di
         result["items"] = _children(meta, root)
         result["total"] = embedded.get("total")
     return result
+
+
+def _scope_prefix(args: dict[str, Any], root: str) -> str:
+    """The ``disk:/...`` prefix that results must sit under, or ``""`` for the whole disk.
+
+    A caller-supplied ``path`` narrows within the sandbox; ``YANDEX_DISK_ROOT``
+    alone still confines results even when no path is given.
+    """
+    scope = _text(args, "path")
+    if scope:
+        return resolve(scope, root)
+    return f"{DISK_SCHEME}{root}" if root else ""
+
+
+def _under(prefix: str, item: dict[str, Any]) -> bool:
+    path = str(item.get("path", ""))
+    return not prefix or path == prefix or path.startswith(prefix + "/")
+
+
+def _search_confined(
+    client: YandexDiskClient, query: str, media_type: str | None, prefix: str, limit: int, root: str
+) -> dict[str, Any]:
+    """Page the server-side search, keeping only hits under ``prefix``."""
+    found: list[dict[str, Any]] = []
+    scanned = 0
+    page = 100
+    while scanned < config.DEFAULT_SEARCH_SCAN and len(found) < limit:
+        batch = client.search(query, limit=page, offset=scanned, media_type=media_type)
+        if not batch:
+            break
+        scanned += len(batch)
+        found.extend(_shape(i, root) for i in batch if _under(prefix, i))
+        if len(batch) < page:
+            break
+    return {
+        "query": query,
+        "items": found[:limit],
+        "truncated": len(found) < limit and scanned >= config.DEFAULT_SEARCH_SCAN,
+    }
+
+
+@tool_handler
+def handle_search(client: YandexDiskClient, args: dict[str, Any], root: str) -> dict[str, Any]:
+    query = _text(args, "query")
+    if not query:
+        return {"error": "query must be a non-empty string to search for in file names."}
+    limit = _clamp(args.get("limit"), 20, 100)
+    media_type = _text(args, "media_type") or None
+    prefix = _scope_prefix(args, root)
+    try:
+        if prefix:
+            # The endpoint ignores dir/path, so confinement is filtered here.
+            return _search_confined(client, query, media_type, prefix, limit, root)
+        items = client.search(query, limit=limit, media_type=media_type)
+        return {"query": query, "items": [_shape(i, root) for i in items], "truncated": False}
+    except YandexDiskError as exc:
+        if exc.status == 403:
+            return {
+                "error": (
+                    "The configured Yandex Disk token is not permitted to use search. "
+                    "Other Yandex Disk tools are unaffected."
+                )
+            }
+        raise
 
 
 @tool_handler
@@ -398,6 +463,7 @@ __all__ = [
     "handle_move",
     "handle_publish",
     "handle_read_file",
+    "handle_search",
     "handle_trash_empty",
     "handle_trash_list",
     "handle_trash_restore",

@@ -22,6 +22,7 @@ hermes_yandex_disk/
   schemas.py    # the tools' JSON schemas, kept apart from the handlers
   tools.py      # handlers: JSON in, JSON string out, never raising
   config.py     # env-driven credentials, limits and the action allow-list
+  capabilities.py  # one-time probe of what the configured token may actually do
   _compat.py    # Hermes' get_provider_env when present, env-only shim otherwise
   __init__.py   # register(ctx) — the entry point; RELATIVE imports only
   plugin.yaml   # the manifest Hermes reads
@@ -52,6 +53,13 @@ These are the ones that actually break things:
 8. **New tools need an entry in `config.ACTIONS`, a group in `config.ACTION_GROUPS`, a row in
    the `_TOOLS` table, a line in `plugin.yaml`, and a row in the README table.** A test
    asserts the manifest and the registration agree.
+9. **Some tools are capability-gated.** A few Yandex Disk endpoints are granted per
+   application, not per token scope, so whether a given token can call them is only knowable
+   by trying. `capabilities.py` probes that once at load; `register()` then offers such a tool
+   only when the probe succeeds, so a token that cannot use the endpoint never sees the tool.
+   A capability-gated tool is intentionally left out of `plugin.yaml` and the README — it is
+   discovered at runtime, not advertised. Gate on the capability, never on a hardcoded
+   application identity.
 
 ## Checks before opening a PR
 

@@ -71,6 +71,56 @@ LIST = _schema(
     [],
 )
 
+SEARCH = _schema(
+    "yadisk_search",
+    "Search Yandex Disk for files matching a query, anywhere on the disk. Yandex indexes "
+    "both file names and file contents — including text extracted from documents, OCR of "
+    "images and scans, and metadata — so this finds a file by a phrase inside it, not only "
+    "by its name. Returns files only (not folders), most relevant first, each with its path "
+    "and a search_scope saying whether the name or the contents matched. Recently uploaded "
+    "files may take a little while to be indexed. Use yadisk_list to browse a known folder.",
+    {
+        "query": {
+            "type": "string",
+            "description": (
+                "What to look for, in the file name or its contents, e.g. 'quarterly "
+                "report', an invoice number, or a phrase from inside a document."
+            ),
+        },
+        "path": {
+            "type": "string",
+            "description": "Optional folder to confine results to, including its subfolders.",
+        },
+        "media_type": {
+            "type": "string",
+            "enum": [
+                "audio",
+                "backup",
+                "book",
+                "compressed",
+                "data",
+                "development",
+                "diskimage",
+                "document",
+                "encoded",
+                "executable",
+                "flash",
+                "font",
+                "image",
+                "settings",
+                "spreadsheet",
+                "text",
+                "unknown",
+                "video",
+                "web",
+            ],
+            "description": "Restrict to one Yandex Disk media type.",
+        },
+        "limit": {"type": "integer", "description": "Max matches to return (default 20, max 100)."},
+    },
+    ["query"],
+)
+
 READ_FILE = _schema(
     "yadisk_read_file",
     "Read the contents of a text file stored on Yandex Disk and return it as text. "

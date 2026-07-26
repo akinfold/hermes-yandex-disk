@@ -12,6 +12,9 @@ from __future__ import annotations
 
 import json
 import os
+import time
+import uuid
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -19,6 +22,11 @@ import pytest
 from hermes_yandex_disk import config, tools
 
 pytestmark = pytest.mark.e2e
+
+#: Yandex indexes uploads asynchronously; content (OCR/full-text) lags a name.
+_NAME_INDEX_TIMEOUT = 45.0
+_CONTENT_INDEX_TIMEOUT = 120.0
+_POLL_INTERVAL = 4.0
 
 
 def call(handler: Any, **args: Any) -> dict[str, Any]:
@@ -33,6 +41,33 @@ def failing(handler: Any, **args: Any) -> str:
     result = json.loads(handler(args))
     assert "error" in result, f"{handler.__name__}({args}) unexpectedly succeeded: {result}"
     return str(result["error"])
+
+
+@pytest.fixture
+def require_search() -> None:
+    """Skip a search test when the configured token has no search permission.
+
+    Search is gated to certain Yandex apps; a token without the grant (e.g. the
+    Poligon playground token) 403s. Those runs skip rather than fail.
+    """
+    if not config.search_supported():
+        pytest.skip("The configured token cannot use search (403); skipping search e2e.")
+
+
+def poll_search(match: Callable[[dict[str, Any]], bool], *, timeout: float, **args: Any):
+    """Search until a hit satisfies ``match`` or ``timeout`` elapses.
+
+    Returns the matching hit, or ``None`` if indexing did not catch up in time —
+    the caller decides whether that is a skip (asynchronous indexing) or a fail.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        for hit in call(tools.handle_search, **args)["items"]:
+            if match(hit):
+                return hit
+        if time.monotonic() >= deadline:
+            return None
+        time.sleep(_POLL_INTERVAL)
 
 
 def test_disk_info_matches_the_configured_account() -> None:
@@ -155,3 +190,68 @@ def test_the_sandbox_holds_against_a_real_disk(
 def test_a_missing_resource_reports_the_english_description(workspace: str) -> None:
     message = failing(tools.handle_read_file, path=f"{workspace}/definitely-not-here.txt")
     assert "not found" in message.lower(), message
+
+
+# -- search (needs a token whose app is allowlisted for it) ----------------
+
+
+def test_search_finds_a_file_by_name(require_search: None, workspace: str) -> None:
+    marker = f"needle{uuid.uuid4().hex[:10]}"
+    call(tools.handle_write_file, path=f"{workspace}/{marker}-report.txt", content="body")
+
+    # The marker is in the name only (content is "body"), so a hit proves name
+    # search. The exact search_scope label is Yandex's own classification and is
+    # not stable (a filename token can come back as "tags"), so it is not asserted.
+    hit = poll_search(
+        lambda h: h["name"] == f"{marker}-report.txt",
+        timeout=_NAME_INDEX_TIMEOUT,
+        query=marker,
+        path=workspace,
+    )
+    if hit is None:
+        pytest.skip(f"Name index did not catch up within {_NAME_INDEX_TIMEOUT}s (async).")
+    assert hit["path"] == f"disk:{workspace}/{marker}-report.txt", hit
+    assert hit.get("search_scope"), hit
+
+
+def test_search_finds_a_file_by_its_contents(require_search: None, workspace: str) -> None:
+    """The real value of the endpoint: the query is inside the file, not its name."""
+    marker = f"cephalopod{uuid.uuid4().hex[:10]}"
+    call(
+        tools.handle_write_file,
+        path=f"{workspace}/plain-name.txt",  # name deliberately has no marker
+        content=f"This document mentions a rare {marker} from the deep sea.",
+    )
+
+    hit = poll_search(
+        lambda h: h["name"] == "plain-name.txt",
+        timeout=_CONTENT_INDEX_TIMEOUT,
+        query=marker,
+        path=workspace,
+    )
+    if hit is None:
+        pytest.skip(f"Content index did not catch up within {_CONTENT_INDEX_TIMEOUT}s (async).")
+    # The marker appears nowhere in the name, so finding the file at all proves
+    # content indexing (full text / OCR / metadata). A "name" scope here would be
+    # a contradiction, so that one value is worth ruling out.
+    assert hit.get("search_scope") != "name", hit
+
+
+def test_search_is_confined_to_the_given_folder(require_search: None, workspace: str) -> None:
+    marker = f"scoped{uuid.uuid4().hex[:10]}"
+    call(tools.handle_write_file, path=f"{workspace}/inside/{marker}.txt", content="x")
+    call(tools.handle_write_file, path=f"/{marker}-outside.txt", content="x")
+    try:
+        inside = poll_search(
+            lambda h: marker in h["name"],
+            timeout=_NAME_INDEX_TIMEOUT,
+            query=marker,
+            path=f"{workspace}/inside",
+        )
+        if inside is None:
+            pytest.skip(f"Name index did not catch up within {_NAME_INDEX_TIMEOUT}s (async).")
+        # Scanned across the disk, but only the in-scope hit is returned.
+        scoped = call(tools.handle_search, query=marker, path=f"{workspace}/inside")
+        assert [h["name"] for h in scoped["items"]] == [f"{marker}.txt"], scoped
+    finally:
+        call(tools.handle_delete, path=f"/{marker}-outside.txt", permanently=True)

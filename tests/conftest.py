@@ -73,6 +73,8 @@ class FakeDisk:
         self.requests: list[httpx.Request] = []
         self.fail_next: httpx.Response | None = None
         self._deferred = 0
+        #: When False, the search endpoint 403s — a token whose app lacks the grant.
+        self.search_allowed = True
 
     # -- helpers ------------------------------------------------------
 
@@ -145,7 +147,7 @@ class FakeDisk:
             ("GET", "/resources/upload"): lambda: self._upload_link(query),
             ("POST", "/resources/upload"): lambda: self._upload_from_url(query),
             ("GET", "/resources/download"): lambda: self._download_link(query),
-            ("GET", "/resources/files"): lambda: self._flat_files(query),
+            ("GET", "/resources/search"): lambda: self._search(query),
             ("PUT", "/resources/publish"): lambda: self._publish(query, True),
             ("PUT", "/resources/unpublish"): lambda: self._publish(query, False),
             ("GET", "/trash/resources"): lambda: self._trash_get(query),
@@ -266,14 +268,25 @@ class FakeDisk:
     def _get_bytes(self, query: dict[str, str]) -> httpx.Response:
         return httpx.Response(200, content=self.files[query["p"]])
 
-    def _flat_files(self, query: dict[str, str]) -> httpx.Response:
+    def _search(self, query: dict[str, str]) -> httpx.Response:
+        """Server-side name search over the whole disk. Ignores dir/path, like Yandex."""
+        if not self.search_allowed:
+            return _error(403, "ForbiddenError", "Forbidden")
+        needle = query.get("query", "")
+        if not needle:
+            return _error(400, "FieldValidationError", "query is required")
         offset = int(query.get("offset", 0))
         limit = int(query.get("limit", 20))
         wanted = query.get("media_type")
-        items = [self._meta(p) for p in sorted(self.files)]
+        hits = [
+            self._meta(p)
+            for p in sorted(self.files)
+            if needle.lower() in p.rsplit("/", 1)[-1].lower()
+        ]
         if wanted:
-            items = [i for i in items if i.get("media_type") == wanted]
-        return _json({"items": items[offset : offset + limit], "offset": offset})
+            hits = [i for i in hits if i.get("media_type") == wanted]
+        window = hits[offset : offset + limit]
+        return _json({"items": window, "limit": limit, "offset": offset})
 
     def _publish(self, query: dict[str, str], on: bool) -> httpx.Response:
         path = query["path"]

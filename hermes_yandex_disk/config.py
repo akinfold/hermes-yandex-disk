@@ -22,9 +22,16 @@ MAX_DOWNLOAD_BYTES_ENV = "YANDEX_DISK_MAX_DOWNLOAD_BYTES"
 
 DEFAULT_MAX_READ_BYTES = 1024 * 1024
 DEFAULT_MAX_DOWNLOAD_BYTES = 256 * 1024 * 1024
+#: When a search is confined (a folder scope or YANDEX_DISK_ROOT), matches are
+#: filtered client-side; this bounds how many server hits are scanned to fill a
+#: page. Server-side name matching keeps the hit set small, so this is rarely
+#: reached.
+DEFAULT_SEARCH_SCAN = 1000
+
 ACTIONS: tuple[str, ...] = (
     "disk_info",
     "list",
+    "search",
     "read_file",
     "trash_list",
     "download",
@@ -41,7 +48,7 @@ ACTIONS: tuple[str, ...] = (
 
 ACTION_GROUPS: dict[str, frozenset[str]] = {
     "all": frozenset(ACTIONS),
-    "read": frozenset({"disk_info", "list", "read_file", "trash_list"}),
+    "read": frozenset({"disk_info", "list", "search", "read_file", "trash_list"}),
     "download": frozenset({"download"}),
     "write": frozenset({"mkdir", "write_file", "upload", "copy", "move", "trash_restore"}),
     "share": frozenset({"publish"}),
@@ -131,3 +138,17 @@ def build_client() -> YandexDiskClient:
         timeout=timeout(),
         max_retries=DEFAULT_MAX_RETRIES,
     )
+
+
+def search_supported() -> bool:
+    """Whether the configured token may use the search endpoint (cached probe).
+
+    False when no token is set, so callers need not check both. See
+    :mod:`.capabilities` for why this is a live probe rather than a scope lookup.
+    """
+    from . import capabilities
+
+    value = token()
+    if not value:
+        return False
+    return capabilities.search_available(value, build_client)

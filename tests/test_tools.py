@@ -53,6 +53,76 @@ def test_list_reports_a_missing_folder(disk: FakeDisk) -> None:
     assert "not found" in payload(tools.handle_list({"path": "/nope"}))["error"].lower()
 
 
+def test_search_finds_files_by_name_across_the_disk(disk: FakeDisk) -> None:
+    disk.add_file("disk:/Docs/Invoice-2026.pdf", b"x")
+    disk.add_file("disk:/Archive/old-invoice.pdf", b"x")
+    disk.add_file("disk:/receipt.txt", b"x")
+    result = payload(tools.handle_search({"query": "invoice"}))
+    assert {i["path"] for i in result["items"]} == {
+        "disk:/Docs/Invoice-2026.pdf",
+        "disk:/Archive/old-invoice.pdf",
+    }
+    assert result["truncated"] is False
+
+
+def test_search_needs_a_query(disk: FakeDisk) -> None:
+    assert "non-empty" in payload(tools.handle_search({"query": "  "}))["error"]
+
+
+def test_search_honours_the_limit(disk: FakeDisk) -> None:
+    for i in range(5):
+        disk.add_file(f"disk:/report{i}.txt", b"x")
+    assert len(payload(tools.handle_search({"query": "report", "limit": 2}))["items"]) == 2
+
+
+def test_search_can_be_confined_to_a_folder(disk: FakeDisk) -> None:
+    disk.add_file("disk:/A/report.txt", b"x")
+    disk.add_file("disk:/B/report.txt", b"x")
+    result = payload(tools.handle_search({"query": "report", "path": "/A"}))
+    assert [i["path"] for i in result["items"]] == ["disk:/A/report.txt"]
+
+
+def test_search_scope_does_not_match_a_sibling_by_prefix(disk: FakeDisk) -> None:
+    disk.add_file("disk:/Archive2/report.txt", b"x")
+    assert payload(tools.handle_search({"query": "report", "path": "/Archive"}))["items"] == []
+
+
+def test_search_forbidden_token_degrades_gracefully(disk: FakeDisk) -> None:
+    disk.search_allowed = False
+    result = payload(tools.handle_search({"query": "anything"}))
+    assert "not permitted to use search" in result["error"]
+    assert "unaffected" in result["error"]
+
+
+def test_search_forbidden_is_reported_even_when_confined(disk: FakeDisk) -> None:
+    disk.search_allowed = False
+    result = payload(tools.handle_search({"query": "x", "path": "/A"}))
+    assert "not permitted to use search" in result["error"]
+
+
+def test_search_confined_with_no_matches_returns_empty(disk: FakeDisk) -> None:
+    disk.add_file("disk:/A/report.txt", b"x")
+    result = payload(tools.handle_search({"query": "nothingmatches", "path": "/A"}))
+    assert result["items"] == []
+    assert result["truncated"] is False
+
+
+def test_search_surfaces_a_non_403_error(disk: FakeDisk) -> None:
+    disk.fail_next = httpx.Response(503, json={"description": "Service unavailable"})
+    result = payload(tools.handle_search({"query": "anything"}))
+    assert result["error"] == "Service unavailable"
+
+
+def test_search_confined_scan_can_truncate(monkeypatch: pytest.MonkeyPatch, disk: FakeDisk) -> None:
+    monkeypatch.setattr(config, "DEFAULT_SEARCH_SCAN", 2)
+    # Many matches, but all outside the scope, so the scan bound is hit unfilled.
+    for i in range(6):
+        disk.add_file(f"disk:/Other/hit{i}.txt", b"x")
+    result = payload(tools.handle_search({"query": "hit", "path": "/Scope", "limit": 5}))
+    assert result["items"] == []
+    assert result["truncated"] is True
+
+
 def test_read_file(disk: FakeDisk) -> None:
     disk.add_file("disk:/notes.md", "привет\n".encode())
     result = payload(tools.handle_read_file({"path": "/notes.md"}))
@@ -300,6 +370,14 @@ def test_results_hide_the_sandbox_prefix(sandboxed: None, disk: FakeDisk) -> Non
     result = payload(tools.handle_list({}))
     assert result["path"] == "disk:/"
     assert [i["path"] for i in result["items"]] == ["disk:/notes.md"]
+
+
+def test_search_is_confined_to_the_sandbox(sandboxed: None, disk: FakeDisk) -> None:
+    # The endpoint searches the whole disk; the sandbox filter runs client-side.
+    disk.add_file("disk:/Hermes/report.txt", b"x")
+    disk.add_file("disk:/Private/report.txt", b"x")
+    result = payload(tools.handle_search({"query": "report"}))
+    assert [i["path"] for i in result["items"]] == ["disk:/report.txt"]
 
 
 def test_an_absolute_path_outside_the_sandbox_is_refused(sandboxed: None, disk: FakeDisk) -> None:

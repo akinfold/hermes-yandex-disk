@@ -303,6 +303,39 @@ def test_trash_delete_empties_everything(client: YandexDiskClient, disk: FakeDis
     assert disk.trash == {}
 
 
+def test_search_returns_matching_files(client: YandexDiskClient, disk: FakeDisk) -> None:
+    disk.add_file("disk:/Docs/alpha.txt", b"x")
+    disk.add_file("disk:/beta.txt", b"x")
+    hits = client.search("alpha")
+    assert [h["path"] for h in hits] == ["disk:/Docs/alpha.txt"]
+    query = _query(disk.requests[-1])
+    assert query["query"] == "alpha" and query["limit"] == "20"
+
+
+def test_search_passes_media_type_and_paging(client: YandexDiskClient, disk: FakeDisk) -> None:
+    client.search("x", limit=5, offset=10, media_type="image", sort="name")
+    query = _query(disk.requests[-1])
+    assert query == {
+        "query": "x",
+        "limit": "5",
+        "offset": "10",
+        "media_type": "image",
+        "sort": "name",
+    }
+
+
+def test_search_forbidden_raises_403(client: YandexDiskClient, disk: FakeDisk) -> None:
+    disk.search_allowed = False
+    with pytest.raises(YandexDiskError) as excinfo:
+        client.search("x")
+    assert excinfo.value.status == 403
+
+
+def test_search_non_list_items_is_empty(client: YandexDiskClient, disk: FakeDisk) -> None:
+    disk.fail_next = httpx.Response(200, json={"items": "nope"})
+    assert client.search("x") == []
+
+
 def test_client_owns_its_default_http_client() -> None:
     client = YandexDiskClient("t")
     assert client.base_url == API_BASE

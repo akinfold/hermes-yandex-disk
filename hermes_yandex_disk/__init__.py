@@ -15,7 +15,7 @@ from typing import Any
 
 from . import config, schemas, tools
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = ["__version__", "register"]
 
@@ -30,6 +30,7 @@ _TOOLS: tuple[tuple[str, dict[str, Any], Any, str, str], ...] = (
         "💽",
     ),
     ("list", schemas.LIST, tools.handle_list, "List a Yandex Disk folder or file.", "📂"),
+    ("search", schemas.SEARCH, tools.handle_search, "Search Yandex Disk by file name.", "🔎"),
     (
         "read_file",
         schemas.READ_FILE,
@@ -95,17 +96,31 @@ _TOOLS: tuple[tuple[str, dict[str, Any], Any, str, str], ...] = (
 _REQUIRES_ENV = [config.TOKEN_ENV]
 
 
+def _action_available(action: str) -> bool:
+    """Whether an action clears its per-action capability gate, beyond the allow-list.
+
+    Search is gated on a live probe of the token (see :mod:`.capabilities`): a
+    token that cannot use the search endpoint never has the tool registered, so
+    the agent only discovers search when the token actually supports it. Every
+    other action is unconditional.
+    """
+    if action == "search":
+        return config.search_supported()
+    return True
+
+
 def register(ctx: Any) -> None:
     """Called by Hermes at load time with a PluginContext.
 
     Only the actions ``YANDEX_DISK_ACTIONS`` permits are registered at all — a
     deployment that sets ``read`` never exposes a tool that can modify the disk,
     so there is nothing to refuse at call time. Filtering happens here, at load,
-    so changing the variable needs a Hermes restart.
+    so changing the variable needs a Hermes restart. Search carries an extra
+    capability gate on top; see :func:`_action_available`.
     """
     allowed = config.allowed_actions()
     for action, schema, handler, description, emoji in _TOOLS:
-        if action not in allowed:
+        if action not in allowed or not _action_available(action):
             continue
         ctx.register_tool(
             name=schema["name"],

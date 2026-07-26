@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hermes-yandex-disk"
-version = "0.2.0"
+version = "0.3.0"
 description = "Yandex Disk plugin for Hermes Agent — browse, read, write and share files on Yandex Disk."
 readme = "README.md"
 license = "MIT"

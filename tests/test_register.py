@@ -37,36 +37,67 @@ class FakeCtx:
         return [t["name"] for t in self.tools]
 
 
-def _register() -> FakeCtx:
+def _register(monkeypatch: pytest.MonkeyPatch, *, search: bool = False) -> FakeCtx:
+    """Register with the search capability stubbed, so no probe hits the network."""
+    monkeypatch.setattr(config, "search_supported", lambda: search)
     ctx = FakeCtx()
     hermes_yandex_disk.register(ctx)
     return ctx
 
 
-def test_every_action_is_registered_by_default() -> None:
-    ctx = _register()
+def test_every_action_registers_when_search_is_available(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ctx = _register(monkeypatch, search=True)
     assert len(ctx.names) == len(config.ACTIONS)
     assert ctx.names[0] == "yadisk_disk_info"
+    assert "yadisk_search" in ctx.names
 
 
-def test_the_manifest_lists_exactly_the_registered_tools() -> None:
+def test_search_is_hidden_when_the_token_cannot_search(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ctx = _register(monkeypatch, search=False)
+    assert "yadisk_search" not in ctx.names
+    assert len(ctx.names) == len(config.ACTIONS) - 1
+
+
+def test_search_needs_both_the_action_and_the_capability(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(config.ACTIONS_ENV, "read")
+    assert "yadisk_search" in _register(monkeypatch, search=True).names
+    assert "yadisk_search" not in _register(monkeypatch, search=False).names
+    # And the capability alone does not smuggle it past the allow-list.
+    monkeypatch.setenv(config.ACTIONS_ENV, "write")
+    assert "yadisk_search" not in _register(monkeypatch, search=True).names
+
+
+def test_the_manifest_lists_every_tool_except_search(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     manifest = (PACKAGE_DIR / "plugin.yaml").read_text(encoding="utf-8")
     declared = [
         line.split("- ", 1)[1].strip()
         for line in manifest.splitlines()
         if line.startswith("  - yadisk_")
     ]
-    assert declared == _register().names
+    # Search is deliberately unmanifested: it is discovered only when the token
+    # supports it, so with no capability the registered set equals the manifest.
+    assert declared == _register(monkeypatch, search=False).names
+    assert "yadisk_search" not in declared
+    assert "yadisk_search" in _register(monkeypatch, search=True).names
 
 
 def test_read_only_deployments_never_see_a_mutating_tool(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(config.ACTIONS_ENV, "read")
-    names = _register().names
+    names = _register(monkeypatch, search=True).names
     assert names == [
         "yadisk_disk_info",
         "yadisk_list",
+        "yadisk_search",
         "yadisk_read_file",
         "yadisk_trash_list",
     ]
@@ -76,11 +107,11 @@ def test_a_value_naming_nothing_valid_registers_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(config.ACTIONS_ENV, "nonsense")
-    assert _register().names == []
+    assert _register(monkeypatch, search=True).names == []
 
 
 def test_registration_wires_the_credential_check(monkeypatch: pytest.MonkeyPatch) -> None:
-    entry = _register().tools[0]
+    entry = _register(monkeypatch).tools[0]
     assert entry["toolset"] == tools.TOOLSET
     assert entry["requires_env"] == [config.TOKEN_ENV]
     assert entry["check_fn"]()
@@ -88,8 +119,10 @@ def test_registration_wires_the_credential_check(monkeypatch: pytest.MonkeyPatch
     assert not entry["check_fn"]()
 
 
-def test_registered_handlers_are_the_ones_the_schema_names() -> None:
-    for entry in _register().tools:
+def test_registered_handlers_are_the_ones_the_schema_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for entry in _register(monkeypatch, search=True).tools:
         assert entry["schema"]["name"] == entry["name"]
         assert callable(entry["handler"])
         assert entry["description"] and entry["emoji"]
@@ -125,13 +158,17 @@ def test_schema_is_json_serialisable(schema: dict[str, Any]) -> None:
 # -- the never-raise contract, with nothing configured --------------------
 
 
-@pytest.mark.parametrize("entry", _register().tools, ids=lambda e: e["name"])
+@pytest.mark.parametrize(
+    "handler",
+    [handler for _action, _schema, handler, _desc, _emoji in hermes_yandex_disk._TOOLS],
+    ids=[schema["name"] for _action, schema, _handler, _desc, _emoji in hermes_yandex_disk._TOOLS],
+)
 def test_no_handler_raises_when_the_token_is_missing(
-    monkeypatch: pytest.MonkeyPatch, entry: dict[str, Any]
+    monkeypatch: pytest.MonkeyPatch, handler: Any
 ) -> None:
     monkeypatch.delenv(config.TOKEN_ENV, raising=False)
     monkeypatch.delenv(config.TOKEN_ENV_ALIAS, raising=False)
-    result = payload(entry["handler"]({}))
+    result = payload(handler({}))
     assert config.TOKEN_ENV in result["error"]
 
 
@@ -159,7 +196,7 @@ def test_all_three_version_files_agree() -> None:
 # -- the Hermes directory-plugin load path --------------------------------
 
 
-def test_loads_the_way_hermes_loads_a_directory_plugin() -> None:
+def test_loads_the_way_hermes_loads_a_directory_plugin(monkeypatch: pytest.MonkeyPatch) -> None:
     """Simulate Hermes' loader: relative imports and register() must both work."""
     namespace = "hermes_plugins"
     sys.modules.setdefault(namespace, types.ModuleType(namespace)).__path__ = []  # type: ignore[attr-defined]
@@ -176,6 +213,9 @@ def test_loads_the_way_hermes_loads_a_directory_plugin() -> None:
     sys.modules[module_name] = module
     try:
         spec.loader.exec_module(module)
+        # The freshly loaded package has its own config submodule; stub the
+        # capability there so the load path does not probe the network.
+        monkeypatch.setattr(module.config, "search_supported", lambda: True)
         ctx = FakeCtx()
         module.register(ctx)
         assert len(ctx.names) == len(config.ACTIONS)
