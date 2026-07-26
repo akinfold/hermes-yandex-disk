@@ -193,6 +193,14 @@ The suite skips itself when no credentials are available. On GitHub Actions, run
 **E2E (live)** workflow manually; it reads `YANDEX_DISK_OAUTH_TOKEN` from the
 `yandex-disk-e2e` environment.
 
+## Related Hermes plugins
+
+Part of a family of Yandex plugins for Hermes Agent:
+
+- [hermes-yandex-mail](https://github.com/akinfold/hermes-yandex-mail) — search, read, flag, move, and delete Yandex Mail messages (IMAP).
+- [hermes-yandex-calendar](https://github.com/akinfold/hermes-yandex-calendar) — list, create, update, respond to, move, and delete Yandex Calendar events (CalDAV).
+- [hermes-yandex-search-api](https://github.com/akinfold/hermes-yandex-search-api) — Yandex web search backend and generative, cited answers for Hermes (Yandex Search API).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Please report security issues privately rather than as
