@@ -60,10 +60,16 @@ ruff check .
 ruff format --check .
 pytest --cov=hermes_yandex_disk --cov-report=term-missing --cov-fail-under=90
 radon cc -s -n C hermes_yandex_disk    # must print nothing
+bandit -q -r hermes_yandex_disk tests --skip B101 --severity-level medium
 ```
 
 If the complexity gate fires, **split the function — do not raise the bar.** In practice the
 fix is extracting an argument-marshalling or dispatch helper, which does not change behaviour.
+
+The bandit gate exists because CodeFactor runs the same checks and files an issue for a
+finding — but only once the code is already on `main`. Fix the finding rather than adding a
+`# nosec`; reach for `# nosec B<id>` (not `# noqa`, which is ruff's) only when the flagged
+construct is genuinely unavoidable, and say why on the same line.
 
 ## Running the live E2E tests
 

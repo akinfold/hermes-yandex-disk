@@ -26,7 +26,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.4", "pytest-cov>=4.1", "ruff>=0.6", "radon>=6.0"]
+dev = ["pytest>=7.4", "pytest-cov>=4.1", "ruff>=0.6", "radon>=6.0", "bandit>=1.7"]
 
 [project.urls]
 Homepage = "https://github.com/akinfold/hermes-yandex-disk"

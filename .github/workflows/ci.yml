@@ -34,6 +34,11 @@ jobs:
             exit 1
           fi
           radon cc -a hermes_yandex_disk | tail -1
+      # CodeFactor runs bandit and opens an issue for a finding — but only after
+      # the code is merged. Catch the same findings here instead. B101 (assert)
+      # is skipped: asserts are how tests are written, and CodeFactor ignores it.
+      - name: Security gate (bandit)
+        run: bandit -q -r hermes_yandex_disk tests --skip B101 --severity-level medium
 
   test:
     name: Unit tests (py${{ matrix.python-version }})

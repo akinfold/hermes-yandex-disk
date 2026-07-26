@@ -240,8 +240,9 @@ def test_upload_from_a_url_is_fetched_by_yandex(disk: FakeDisk) -> None:
     assert not any(r.url.host == "e.test" for r in disk.requests)
 
 
-@pytest.mark.parametrize("args", [{}, {"local_path": "/tmp/x", "url": "https://e.test/f"}])
+@pytest.mark.parametrize("args", [{}, {"local_path": "local.bin", "url": "https://e.test/f"}])
 def test_upload_needs_exactly_one_source(disk: FakeDisk, args: dict) -> None:
+    """Neither source, or both — the handler refuses before touching anything."""
     assert "exactly one" in payload(tools.handle_upload({"path": "/x", **args}))["error"]
 
 
