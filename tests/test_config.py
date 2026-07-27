@@ -33,7 +33,7 @@ def test_build_client_honours_the_base_url_override(monkeypatch: pytest.MonkeyPa
 
 def test_default_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
     with config.build_client() as client:
-        assert client.base_url.startswith("https://cloud-api.yandex.net")
+        assert client.base_url == "https://cloud-api.yandex.net/v1/disk"
 
 
 @pytest.mark.parametrize(

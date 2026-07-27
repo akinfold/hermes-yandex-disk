@@ -168,7 +168,7 @@ def test_upload_reports_a_rejected_transfer(client: YandexDiskClient, disk: Fake
     original = disk.handler
 
     def fail_on_the_uploader(request: httpx.Request) -> httpx.Response:
-        if "uploader.example.net" in str(request.url):
+        if request.url.host == "uploader.example.net":
             return httpx.Response(507, json={"description": "Not enough space"})
         return original(request)
 
@@ -242,7 +242,7 @@ def test_download_stream_error_is_translated(client: YandexDiskClient, disk: Fak
     original = disk.handler
 
     def fail_on_the_downloader(request: httpx.Request) -> httpx.Response:
-        if "downloader.example.net" in str(request.url):
+        if request.url.host == "downloader.example.net":
             return httpx.Response(410, json={"description": "Link expired"})
         return original(request)
 
@@ -258,7 +258,7 @@ def test_download_to_file_stream_error_is_translated(
     original = disk.handler
 
     def fail_on_the_downloader(request: httpx.Request) -> httpx.Response:
-        if "downloader.example.net" in str(request.url):
+        if request.url.host == "downloader.example.net":
             return httpx.Response(410, json={"description": "Link expired"})
         return original(request)
 
