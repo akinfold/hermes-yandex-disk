@@ -100,11 +100,34 @@ def test_is_inside_root_survives_a_malformed_path() -> None:
 
 
 def test_display_hides_the_sandbox_prefix() -> None:
-    assert display("disk:/Hermes/a/b", "/Hermes") == "disk:/a/b"
-    assert display("disk:/Hermes", "/Hermes") == "disk:/"
+    assert display("disk:/Hermes/a/b", "/Hermes") == "/a/b"
+    assert display("disk:/Hermes", "/Hermes") == "/"
     assert display("disk:/a/b", "") == "disk:/a/b"
 
 
 def test_display_leaves_foreign_and_malformed_paths_alone() -> None:
     assert display("disk:/Other/a", "/Hermes") == "disk:/Other/a"
     assert display("disk:/../a", "/Hermes") == "disk:/../a"
+    assert display("trash:/a_1", "/Hermes") == "trash:/a_1"
+
+
+@pytest.mark.parametrize(
+    "api_path",
+    [
+        "disk:/Hermes/notes.md",
+        "disk:/Hermes/sub/deeper/notes.md",
+        "disk:/Hermes",  # the sandbox itself
+        "disk:/Hermes/Hermes/x.md",  # the remainder repeats the root name
+        "disk:/Hermes/my notes.md",  # a space
+        "disk:/Hermes/Заметки/файл.md",  # non-ASCII
+    ],
+)
+def test_a_displayed_path_can_be_passed_straight_back(api_path: str) -> None:
+    """What the model is shown resolves to the very path it was made from."""
+    assert resolve(display(api_path, "/Hermes"), "/Hermes") == api_path
+
+
+@pytest.mark.parametrize("api_path", ["disk:/a/b", "disk:/", "disk:/Hermes/Hermes/x.md"])
+def test_without_a_root_display_is_the_identity_and_still_round_trips(api_path: str) -> None:
+    assert display(api_path, "") == api_path
+    assert resolve(display(api_path, ""), "") == api_path

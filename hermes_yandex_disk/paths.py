@@ -89,15 +89,21 @@ def is_inside_root(path: str, root: str) -> bool:
 
 
 def display(path: str, root: str) -> str:
-    """Present an API path to the model, hiding the sandbox prefix when one is set."""
+    """Present an API path to the model, hiding the sandbox prefix when one is set.
+
+    The result is dropped back into :func:`resolve` whenever the model quotes it,
+    so a path stripped of its root is returned without a scheme as well: a scheme
+    would make :func:`resolve` read it as absolute and point it at a different
+    file (``disk:/Hermes/Hermes/x`` shown as ``disk:/Hermes/x``) or refuse it
+    outright. Without a root the path is handed over untouched.
+    """
     if not root:
         return path
-    scheme, rest = split_scheme(path or "")
+    _, rest = split_scheme(path or "")
     try:
         absolute = _normalize_segments(rest)
     except PathError:
         return path
     if not _is_inside(absolute, root):
         return path
-    relative = absolute[len(root) :] or "/"
-    return f"{scheme}{relative}"
+    return absolute[len(root) :] or "/"

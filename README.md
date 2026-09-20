@@ -112,10 +112,12 @@ YANDEX_DISK_ROOT=/Hermes
 
 Every path the agent gives is then interpreted relative to `disk:/Hermes`, and anything that
 resolves outside it — an absolute `disk:/Private/...`, a `../` climb, a path pasted from
-somewhere else — is refused before a request is made. Results are rewritten to hide the
-prefix, so the agent sees a disk whose root *is* that folder. The bin is filtered the same
-way: items deleted from outside the sandbox are neither listed nor restorable, and emptying
-the whole bin is refused, because the bin is shared with the rest of the account.
+somewhere else — is refused before a request is made. Results are rewritten so the agent never
+sees the prefix: every path it gets back is relative to that folder — `disk:/Hermes/notes.md`
+comes back as `/notes.md` — and can be handed straight to the next tool. The agent sees a disk
+whose root *is* that folder. The bin is filtered the same way: items deleted from outside the
+sandbox are neither listed nor restorable, and emptying the whole bin is refused, because the
+bin is shared with the rest of the account.
 
 ### Choosing what the agent may do
 

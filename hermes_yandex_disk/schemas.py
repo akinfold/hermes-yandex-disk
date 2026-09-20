@@ -16,7 +16,9 @@ _PATH = {
     "type": "string",
     "description": (
         "Path on Yandex Disk, e.g. '/Documents/report.pdf'. Leading slash optional. "
-        "Paths returned by other tools ('disk:/...') can be passed back verbatim."
+        "A path returned by another tool can be passed back exactly as it came: "
+        "'disk:/...' for the whole disk, or relative to the configured root folder "
+        "('/report.pdf') when the tools are confined to one."
     ),
 }
 _SORT = {
