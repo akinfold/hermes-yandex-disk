@@ -16,6 +16,7 @@
 - [ ] `ruff format --check .` passes
 - [ ] `pytest --cov=hermes_yandex_disk --cov-fail-under=90` passes, and new error paths are covered
 - [ ] `radon cc -s -n C hermes_yandex_disk` prints nothing
+- [ ] `bandit -q -r hermes_yandex_disk tests --skip B101 --severity-level medium` reports nothing
 - [ ] `client.py` and `paths.py` still import nothing from Hermes
 - [ ] Every handler still returns JSON on every path, including failure
 - [ ] Every path still goes through `paths.resolve`, so `YANDEX_DISK_ROOT` still holds

@@ -36,7 +36,7 @@ DEFAULT_MAX_READ_BYTES = 1024 * 1024
 DEFAULT_MAX_DOWNLOAD_BYTES = 256 * 1024 * 1024
 #: When a search is confined (a folder scope or YANDEX_DISK_ROOT), matches are
 #: filtered client-side; this bounds how many server hits are scanned to fill a
-#: page. Server-side name matching keeps the hit set small, so this is rarely
+#: page. Server-side matching keeps the hit set small, so this is rarely
 #: reached.
 DEFAULT_SEARCH_SCAN = 1000
 

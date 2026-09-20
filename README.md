@@ -19,13 +19,15 @@ browser.
 
 - 🔒 **`YANDEX_DISK_ROOT` sandboxes the agent to one folder** — every path is checked against
   it, including ones the model invents and ones it copies back from an earlier result.
-- 🛟 **Nothing is overwritten or destroyed by accident** — writes, copies and moves refuse an
-  existing destination unless you pass `overwrite`, deletes go to the bin by default, and the
-  bin can be restored from.
+- 🛟 **Nothing is overwritten or destroyed by accident** — writes, copies, moves and local
+  uploads refuse an existing destination unless you pass `overwrite`, deletes go to the bin by
+  default, and the bin can be restored from. The one exception is an upload from a `url`, which
+  Yandex performs itself: the flag is not forwarded there.
 - 🎚 **`YANDEX_DISK_ACTIONS` decides what the agent may do at all** — a tool outside the
   allow-list is never registered, so it cannot be called or talked into being called.
 - 📂 **Fourteen tools over one credential** — browse, read, write, upload, download, copy,
-  move, share and restore, all through the REST API.
+  move, share and restore, all through the REST API — plus a fifteenth, `yadisk_search`,
+  wherever the token is allowed to use Yandex's search endpoint.
 - 🔑 **One OAuth token, nothing proxied** — the plugin talks to `cloud-api.yandex.net`
   directly; no third-party service sees your files or your token.
 
@@ -90,6 +92,18 @@ them without guessing.
 Put them in `~/.hermes/.env` — Hermes reads it in gateway and subprocess runs too — or export
 them in the environment.
 
+The two byte limits take a whole number of bytes and the timeout a number of seconds, fractions
+allowed. A value that is not a number, or is zero or negative — `5MB`, `60s`, `0` — is ignored
+without an error and the default applies.
+
+Two further limits are fixed and cannot be configured. A request answered with 429, 500, 502,
+503 or 504, or one that fails to connect, is retried up to three times (honouring `Retry-After`,
+capped at 30 seconds), so a single call can take longer than `YANDEX_DISK_TIMEOUT`. Large copies,
+moves, deletes, restores and bin operations run as deferred operations on Yandex's side; the
+plugin waits up to 60 seconds for one to finish and then reports that it is still being
+processed. Such an operation usually completes on its own, so check with `yadisk_list` before
+retrying.
+
 ### Confining the agent to one folder
 
 ```dotenv
@@ -113,17 +127,23 @@ YANDEX_DISK_ACTIONS=list,read_file  # exactly two tools
 
 | Group | Tools |
 |---|---|
-| `read` | `disk_info`, `list`, `read_file`, `trash_list` |
+| `read` | `disk_info`, `list`, `read_file`, `trash_list`, and `search` when the token may use it |
 | `download` | `download` (writes to the **local** machine) |
 | `write` | `mkdir`, `write_file`, `upload`, `copy`, `move`, `trash_restore` |
 | `share` | `publish` |
 | `delete` | `delete`, `trash_empty` |
 | `all` | everything — the default when the variable is unset |
 
+`search` is capability-gated: Yandex grants its search endpoint per application rather than
+per token scope, so the plugin probes it once at load and registers the tool only if the probe
+succeeds. Granting `read` therefore also grants a whole-disk search wherever the token is
+allowed to run one; name the tools individually to withhold it.
+
 Groups and individual tool names mix freely, with or without the `yadisk_` prefix, so you can
 paste straight from the tool table above. A name that matches nothing is dropped: a typo can
-only ever withhold a tool, never grant one, and a value naming nothing valid registers nothing
-at all. Filtering happens when the plugin loads, so **restart Hermes** after changing it.
+only ever withhold a tool, never grant one, and a value naming nothing valid (`none`, say)
+registers nothing at all. An empty or blank value counts as unset and therefore registers
+every tool. Filtering happens when the plugin loads, so **restart Hermes** after changing it.
 
 ## Getting the credential
 
@@ -180,7 +200,11 @@ radon cc -s -n C hermes_yandex_disk                         # must print nothing
 ## Running the live E2E tests
 
 > These create, publish and permanently delete real files. **Use a throwaway Yandex account.**
-> Everything is confined to one `hermes-e2e-<id>` folder that is destroyed in teardown.
+> Each test works inside its own `hermes-e2e-<id>` folder, permanently deleted in
+> teardown even when the test fails. Two things reach outside it: the bin tests pass
+> their files through the account-wide bin and remove their own entries, and — only
+> when the token is allowed to search — one test creates a single marker file in the
+> disk root and permanently deletes it again.
 
 Locally, put the token in `~/.yandex-disk-oauth` (and optionally the login in
 `~/.yandex-disk-login`) and run:
@@ -189,15 +213,18 @@ Locally, put the token in `~/.yandex-disk-oauth` (and optionally the login in
 pytest -m e2e -v
 ```
 
-The suite skips itself when no credentials are available. On GitHub Actions, run the
-**E2E (live)** workflow manually; it reads `YANDEX_DISK_OAUTH_TOKEN` from the
-`yandex-disk-e2e` environment.
+The suite skips itself when no credentials are available, and an environment variable wins over
+the file: `YANDEX_DISK_OAUTH_TOKEN` for the token and, optionally, `YANDEX_DISK_E2E_LOGIN` for the
+account login the tests check `yadisk_disk_info` against. On GitHub Actions, run the **E2E (live)**
+workflow manually; it reads the secrets `YANDEX_DISK_OAUTH_TOKEN` and, optionally,
+`YANDEX_DISK_E2E_LOGIN` from the `yandex-disk-e2e` environment, and its `install_hermes` input (on
+by default) also installs `hermes-agent`, so the real credential resolver is exercised.
 
 ## Related Hermes plugins
 
 Part of a family of Yandex plugins for Hermes Agent:
 
-- [hermes-yandex-mail](https://github.com/akinfold/hermes-yandex-mail) — search, read, flag, move, and delete Yandex Mail messages (IMAP).
+- [hermes-yandex-mail](https://github.com/akinfold/hermes-yandex-mail) — search, read, flag, move, and delete Yandex Mail messages over IMAP, and send over SMTP when sending is switched on.
 - [hermes-yandex-calendar](https://github.com/akinfold/hermes-yandex-calendar) — list, create, update, respond to, move, and delete Yandex Calendar events (CalDAV).
 - [hermes-yandex-search-api](https://github.com/akinfold/hermes-yandex-search-api) — Yandex web search backend and generative, cited answers for Hermes (Yandex Search API).
 

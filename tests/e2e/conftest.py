@@ -3,8 +3,8 @@
 Credentials come from the environment first (that is how CI supplies them) and
 otherwise from ``~/.yandex-disk-*`` files, so a local run needs nothing exported.
 
-Every test works inside one throwaway folder named after the run and deletes it
-permanently in teardown, so a failed assertion still leaves the account clean.
+Every test works inside its own throwaway folder and deletes it permanently in
+teardown, so a failed assertion still leaves the account clean.
 Use a disposable Yandex account, never a personal one.
 """
 
