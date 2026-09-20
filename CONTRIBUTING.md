@@ -49,7 +49,8 @@ These are the ones that actually break things:
 6. **Every path goes through `paths.resolve`.** That is the single place the sandbox is
    enforced; a handler that builds a path itself has a hole in it.
 7. **Destructive steps go last, and default to recoverable.** Deletes go to the bin unless the
-   caller asks otherwise; a move confirms the copy before removing the source.
+   caller asks otherwise, a move is a single server-side `POST /resources/move` rather
+   than a copy followed by a delete, and every `overwrite` argument defaults to false.
 8. **New tools need an entry in `config.ACTIONS`, a group in `config.ACTION_GROUPS`, a row in
    the `_TOOLS` table, a line in `plugin.yaml`, and a row in the README table.** A test
    asserts the manifest and the registration agree.
@@ -57,8 +58,10 @@ These are the ones that actually break things:
    application, not per token scope, so whether a given token can call them is only knowable
    by trying. `capabilities.py` probes that once at load; `register()` then offers such a tool
    only when the probe succeeds, so a token that cannot use the endpoint never sees the tool.
-   A capability-gated tool is intentionally left out of `plugin.yaml` and the README — it is
-   discovered at runtime, not advertised. Gate on the capability, never on a hardcoded
+   A capability-gated tool is intentionally left out of `plugin.yaml` and the README tool
+   table — it is discovered at runtime, not advertised. The `YANDEX_DISK_ACTIONS` tables do
+   name it, conditionally: a reader deciding what a group grants has to know that `read` can
+   also carry a whole-disk search. Gate on the capability, never on a hardcoded
    application identity.
 
 ## Checks before opening a PR

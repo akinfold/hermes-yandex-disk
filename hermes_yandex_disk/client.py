@@ -215,7 +215,7 @@ class YandexDiskClient:
         media_type: str | None = None,
         sort: str | None = None,
     ) -> list[dict[str, Any]]:
-        """One page of a server-side, name-based search over the whole disk.
+        """One page of a server-side search of file names and contents, over the whole disk.
 
         Returns files only, ranked by relevance. Yandex restricts this endpoint
         to certain applications, so a token without that permission gets a 403

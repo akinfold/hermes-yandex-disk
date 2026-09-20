@@ -27,6 +27,8 @@ body:
       options:
         - label: >-
             I have checked that the Yandex Disk REST API can actually do this. It has no
-            server-side search, no partial/ranged writes, and no per-file sharing permissions,
-            so those cannot be added here.
+            partial/ranged writes and no per-file sharing permissions, so those cannot be
+            added here. Server-side search does exist, but Yandex grants it per application
+            rather than per token scope, so the plugin offers it only to tokens allowed to
+            use it.
           required: false

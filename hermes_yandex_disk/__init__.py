@@ -30,7 +30,13 @@ _TOOLS: tuple[tuple[str, dict[str, Any], Any, str, str], ...] = (
         "💽",
     ),
     ("list", schemas.LIST, tools.handle_list, "List a Yandex Disk folder or file.", "📂"),
-    ("search", schemas.SEARCH, tools.handle_search, "Search Yandex Disk by file name.", "🔎"),
+    (
+        "search",
+        schemas.SEARCH,
+        tools.handle_search,
+        "Search Yandex Disk by file name or contents.",
+        "🔎",
+    ),
     (
         "read_file",
         schemas.READ_FILE,

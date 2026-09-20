@@ -200,7 +200,7 @@ def _search_confined(
 def handle_search(client: YandexDiskClient, args: dict[str, Any], root: str) -> dict[str, Any]:
     query = _text(args, "query")
     if not query:
-        return {"error": "query must be a non-empty string to search for in file names."}
+        return {"error": "query must be a non-empty string to look for in file names or contents."}
     limit = _clamp(args.get("limit"), 20, 100)
     media_type = _text(args, "media_type") or None
     prefix = _scope_prefix(args, root)

@@ -1,8 +1,10 @@
 """Live tests against a real Yandex Disk account.
 
 Run with ``pytest -m e2e``. They create, publish and destroy real files — always
-point them at a throwaway account. Everything lands inside the ``workspace``
-fixture's folder, which is removed permanently in teardown.
+point them at a throwaway account. Each test works inside its own ``workspace``
+folder, removed permanently in teardown; the exceptions are the bin entries the
+trash tests create and delete, and the marker file the search-confinement test puts
+in the disk root and deletes itself.
 
 Assertions print what the API actually returned, because a live failure is only
 diagnosable from the server's own answer.

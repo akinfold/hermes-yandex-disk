@@ -32,7 +32,7 @@ _SORT = {
         "-modified",
         "-size",
     ],
-    "description": "Sort order for the listing. Prefix with '-' to reverse.",
+    "description": "Sort order for the listing; the '-' variants listed here sort in reverse.",
 }
 
 
@@ -64,7 +64,12 @@ LIST = _schema(
     "Call it with no arguments to see the root of the disk.",
     {
         "path": _PATH,
-        "limit": {"type": "integer", "description": "Max entries to return (default 50)."},
+        "limit": {
+            "type": "integer",
+            "description": (
+                "Max entries to return (default 50, max 1000). Page further with offset."
+            ),
+        },
         "offset": {"type": "integer", "description": "Entries to skip, for paging."},
         "sort": _SORT,
     },
@@ -133,7 +138,11 @@ READ_FILE = _schema(
         },
         "max_bytes": {
             "type": "integer",
-            "description": "Refuse files larger than this (default 1048576).",
+            "description": (
+                "Refuse files larger than this many bytes. Defaults to, and cannot be raised "
+                "above, the configured read limit (1048576 unless YANDEX_DISK_MAX_READ_BYTES "
+                "is set); a larger value is lowered to that limit."
+            ),
         },
     },
     ["path"],
@@ -144,7 +153,10 @@ TRASH_LIST = _schema(
     "List what is in the Yandex Disk bin. Each entry shows the path to pass to "
     "yadisk_trash_restore and the origin_path it was deleted from.",
     {
-        "limit": {"type": "integer", "description": "Max entries to return (default 50)."},
+        "limit": {
+            "type": "integer",
+            "description": "Max entries to return (default 50, max 1000).",
+        },
         "offset": {"type": "integer", "description": "Entries to skip, for paging."},
     },
     [],
@@ -202,7 +214,11 @@ UPLOAD = _schema(
         "url": {"type": "string", "description": "Public http(s) URL for Yandex to fetch."},
         "overwrite": {
             "type": "boolean",
-            "description": "Replace the destination if it already exists (default false).",
+            "description": (
+                "Replace the destination if it already exists (default false). Applies to a "
+                "local_path upload only; a url upload is carried out by Yandex and this flag "
+                "is not forwarded, so an existing destination may be replaced regardless."
+            ),
         },
     },
     ["path"],

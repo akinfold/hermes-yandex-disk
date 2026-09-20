@@ -22,9 +22,10 @@ from .client import YandexDiskClient, YandexDiskError
 
 logger = logging.getLogger(__name__)
 
-#: Statuses that mean "this app may not use the endpoint", as opposed to a
-#: transient failure. Anything else (including a 400 for a probe query the
-#: server dislikes) means the call was authorised.
+#: Statuses that mean "this app may not use the endpoint" — a verdict, and cached
+#: as one. Any other error status (a 400, a 429, a 5xx) or a transport failure is
+#: inconclusive: search stays hidden for this load and the probe runs again the
+#: next time the plugin is loaded.
 _DENIED = frozenset({401, 403})
 
 #: token fingerprint -> capability. Keyed by token so swapping tokens re-probes.
