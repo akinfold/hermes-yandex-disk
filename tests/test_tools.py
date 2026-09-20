@@ -368,8 +368,8 @@ def test_relative_paths_land_inside_the_sandbox(sandboxed: None, disk: FakeDisk)
 def test_results_hide_the_sandbox_prefix(sandboxed: None, disk: FakeDisk) -> None:
     disk.add_file("disk:/Hermes/notes.md", b"x")
     result = payload(tools.handle_list({}))
-    assert result["path"] == "disk:/"
-    assert [i["path"] for i in result["items"]] == ["disk:/notes.md"]
+    assert result["path"] == "/"
+    assert [i["path"] for i in result["items"]] == ["/notes.md"]
 
 
 def test_search_is_confined_to_the_sandbox(sandboxed: None, disk: FakeDisk) -> None:
@@ -377,7 +377,32 @@ def test_search_is_confined_to_the_sandbox(sandboxed: None, disk: FakeDisk) -> N
     disk.add_file("disk:/Hermes/report.txt", b"x")
     disk.add_file("disk:/Private/report.txt", b"x")
     result = payload(tools.handle_search({"query": "report"}))
-    assert [i["path"] for i in result["items"]] == ["disk:/report.txt"]
+    assert [i["path"] for i in result["items"]] == ["/report.txt"]
+
+
+def test_a_reported_path_names_the_same_file_when_it_is_passed_back(
+    sandboxed: None, disk: FakeDisk
+) -> None:
+    """A listed path must not silently name a different file when handed back."""
+    disk.add_file("disk:/Hermes/Hermes/notes.md", b"inner")
+    disk.add_file("disk:/Hermes/notes.md", b"outer")
+    listed = payload(tools.handle_list({"path": "Hermes"}))["items"][0]["path"]
+    assert listed == "/Hermes/notes.md"
+    assert payload(tools.handle_read_file({"path": listed}))["content"] == "inner"
+
+
+def test_a_bin_entry_reports_an_origin_that_can_be_passed_back(
+    sandboxed: None, disk: FakeDisk
+) -> None:
+    disk.add_file("disk:/Hermes/Hermes/notes.md", b"inner")
+    tools.handle_delete({"path": "Hermes/notes.md"})
+    entry = payload(tools.handle_trash_list({}))["items"][0]
+    assert entry["origin_path"] == "/Hermes/notes.md"
+
+    tools.handle_trash_restore({"path": entry["path"]})
+    restored = payload(tools.handle_read_file({"path": entry["origin_path"]}))
+    assert restored["content"] == "inner"
+    assert restored["path"] == "/Hermes/notes.md"
 
 
 def test_an_absolute_path_outside_the_sandbox_is_refused(sandboxed: None, disk: FakeDisk) -> None:

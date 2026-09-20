@@ -179,7 +179,7 @@ def test_the_sandbox_holds_against_a_real_disk(
     monkeypatch.setenv(config.ROOT_ENV, workspace)
 
     call(tools.handle_write_file, path="inside.txt", content="fine")
-    assert call(tools.handle_list)["items"][0]["path"] == "disk:/inside.txt"
+    assert call(tools.handle_list)["items"][0]["path"] == "/inside.txt"
 
     # An absolute path elsewhere on the real disk is refused before any request.
     outside = "disk:/Загрузки/anything.txt"
