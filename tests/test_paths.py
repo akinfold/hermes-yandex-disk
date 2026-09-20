@@ -111,6 +111,16 @@ def test_display_leaves_foreign_and_malformed_paths_alone() -> None:
     assert display("trash:/a_1", "/Hermes") == "trash:/a_1"
 
 
+def test_display_keeps_the_scheme_of_a_bin_entry_named_like_the_root() -> None:
+    """The bin is not inside the sandbox, so its entries keep the scheme.
+
+    Relativising one would hand the model a path that resolve() reads as a disk
+    path, addressing a different resource than the entry it came from.
+    """
+    assert display("trash:/Hermes", "/Hermes") == "trash:/Hermes"
+    assert display("trash:/Hermes/note.md", "/Hermes") == "trash:/Hermes/note.md"
+
+
 @pytest.mark.parametrize(
     "api_path",
     [

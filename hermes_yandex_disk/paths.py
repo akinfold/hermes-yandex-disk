@@ -95,11 +95,15 @@ def display(path: str, root: str) -> str:
     so a path stripped of its root is returned without a scheme as well: a scheme
     would make :func:`resolve` read it as absolute and point it at a different
     file (``disk:/Hermes/Hermes/x`` shown as ``disk:/Hermes/x``) or refuse it
-    outright. Without a root the path is handed over untouched.
+    outright. Without a root the path is handed over untouched, and so is a path
+    in another scheme: the bin (``trash:``) is not inside the sandbox, so its
+    entries keep the scheme :func:`resolve` needs to address them.
     """
     if not root:
         return path
-    _, rest = split_scheme(path or "")
+    scheme, rest = split_scheme(path or "")
+    if scheme and scheme != DISK_SCHEME:
+        return path
     try:
         absolute = _normalize_segments(rest)
     except PathError:
