@@ -226,6 +226,48 @@ def test_download_to_file_refuses_to_exceed_the_budget(
         client.download_to_file("disk:/a.txt", str(tmp_path / "out.txt"), max_bytes=3)
 
 
+def test_download_to_file_leaves_nothing_behind_when_the_budget_is_hit(
+    client: YandexDiskClient, disk: FakeDisk, tmp_path
+) -> None:
+    """A refused download must not leave a file that looks like a finished one."""
+    disk.add_file("disk:/a.txt", b"hello world")
+    target = tmp_path / "out.txt"
+    with pytest.raises(DownloadTooLarge):
+        client.download_to_file("disk:/a.txt", str(target), max_bytes=3)
+    assert not target.exists()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_download_to_file_keeps_the_existing_copy_when_the_download_is_refused(
+    client: YandexDiskClient, disk: FakeDisk, tmp_path
+) -> None:
+    """Overwriting is not a licence to destroy the old file before the new one lands."""
+    disk.add_file("disk:/a.txt", b"hello world")
+    target = tmp_path / "out.txt"
+    target.write_bytes(b"the copy already on this machine")
+    with pytest.raises(DownloadTooLarge):
+        client.download_to_file("disk:/a.txt", str(target), max_bytes=3)
+    assert target.read_bytes() == b"the copy already on this machine"
+    assert list(tmp_path.iterdir()) == [target]
+
+
+def test_exists_tells_a_missing_path_from_a_present_one(
+    client: YandexDiskClient, disk: FakeDisk
+) -> None:
+    disk.add_file("disk:/a.txt", b"x")
+    assert client.exists("disk:/a.txt") is True
+    assert client.exists("disk:/nope.txt") is False
+
+
+def test_exists_does_not_swallow_anything_but_a_404(
+    client: YandexDiskClient, disk: FakeDisk
+) -> None:
+    """A server that is merely unwell must not be read as "the file is not there"."""
+    disk.fail_next = httpx.Response(500, json={"description": "Backend is unwell."})
+    with pytest.raises(YandexDiskError, match="unwell"):
+        client.exists("disk:/a.txt")
+
+
 def test_download_link_errors_are_surfaced(client: YandexDiskClient) -> None:
     with pytest.raises(YandexDiskError, match="not found"):
         client.download_bytes("disk:/missing.txt", max_bytes=10)

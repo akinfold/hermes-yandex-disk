@@ -20,6 +20,9 @@ Two API shapes matter and are handled here rather than in every caller:
 
 from __future__ import annotations
 
+import contextlib
+import os
+import tempfile
 import time
 from typing import Any, BinaryIO
 
@@ -251,6 +254,16 @@ class YandexDiskClient:
         params = {"from": source, "path": destination, "overwrite": str(bool(overwrite)).lower()}
         return self._run("POST", f"/resources/{verb}", params=params)
 
+    def exists(self, path: str) -> bool:
+        """Whether anything lives at *path*. Only a 404 counts as "no"."""
+        try:
+            self.get_meta(path, limit=0, fields="path")
+        except YandexDiskError as exc:
+            if exc.status == 404:
+                return False
+            raise
+        return True
+
     def delete(self, path: str, *, permanently: bool = False) -> dict[str, Any]:
         params = {"path": path, "permanently": str(bool(permanently)).lower()}
         return self._run("DELETE", "/resources", params=params)
@@ -300,13 +313,25 @@ class YandexDiskClient:
         return b"".join(chunks)
 
     def download_to_file(self, path: str, destination: str, *, max_bytes: int) -> int:
-        """Stream a file to a local path. Returns the number of bytes written."""
+        """Stream a file to a local path. Returns the number of bytes written.
+
+        The bytes land in a temporary file beside *destination* and are moved over it
+        only once the stream has run to its end, so a download stopped by the size
+        budget, an expired link or a dropped connection leaves neither a truncated
+        file where a complete one is expected nor a destroyed older copy.
+        """
         total = 0
-        with self._client.stream("GET", self.download_link(path)) as response:
-            if response.status_code >= 400:
-                response.read()
-                raise _error_from_response(response)
-            with open(destination, "wb") as handle:
+        link = self.download_link(path)
+        folder = os.path.dirname(os.path.abspath(destination))
+        descriptor, staging = tempfile.mkstemp(dir=folder, prefix=".yadisk-", suffix=".part")
+        try:
+            with (
+                os.fdopen(descriptor, "wb") as handle,
+                self._client.stream("GET", link) as response,
+            ):
+                if response.status_code >= 400:
+                    response.read()
+                    raise _error_from_response(response)
                 for chunk in response.iter_bytes():
                     total += len(chunk)
                     if total > max_bytes:
@@ -314,6 +339,11 @@ class YandexDiskClient:
                             f"File is larger than the {max_bytes} byte limit for this tool."
                         )
                     handle.write(chunk)
+            os.replace(staging, destination)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(staging)
+            raise
         return total
 
     # -- sharing ----------------------------------------------------------

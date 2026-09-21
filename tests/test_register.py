@@ -155,6 +155,20 @@ def test_schema_is_json_serialisable(schema: dict[str, Any]) -> None:
     assert json.loads(json.dumps(schema)) == schema
 
 
+@pytest.mark.parametrize("schema", _SCHEMAS, ids=lambda s: s["name"])
+def test_every_sort_field_offers_both_directions(schema: dict[str, Any]) -> None:
+    """A field the model may sort by but not sort backwards by is an omission.
+
+    Yandex takes a leading ``-`` on every one of them, so an enum that lists a field
+    without its reverse simply hides a working order from the model.
+    """
+    sort = schema["parameters"]["properties"].get("sort")
+    if sort is None:
+        pytest.skip(f"{schema['name']} does not take a sort order")
+    forward = [value for value in sort["enum"] if not value.startswith("-")]
+    assert sorted(sort["enum"]) == sorted(forward + [f"-{value}" for value in forward])
+
+
 # -- the never-raise contract, with nothing configured --------------------
 
 

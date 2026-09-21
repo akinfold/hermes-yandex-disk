@@ -30,11 +30,12 @@ _SORT = {
         "modified",
         "size",
         "-name",
+        "-path",
         "-created",
         "-modified",
         "-size",
     ],
-    "description": "Sort order for the listing; the '-' variants listed here sort in reverse.",
+    "description": "Sort order for the listing; a leading '-' sorts in reverse.",
 }
 
 
@@ -217,9 +218,9 @@ UPLOAD = _schema(
         "overwrite": {
             "type": "boolean",
             "description": (
-                "Replace the destination if it already exists (default false). Applies to a "
-                "local_path upload only; a url upload is carried out by Yandex and this flag "
-                "is not forwarded, so an existing destination may be replaced regardless."
+                "Replace the destination if it already exists (default false). A url upload "
+                "is staged under a temporary name and moved over the target only once Yandex "
+                "has finished fetching, so a fetch that fails leaves the original in place."
             ),
         },
     },
