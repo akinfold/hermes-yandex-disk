@@ -30,11 +30,12 @@ _SORT = {
         "modified",
         "size",
         "-name",
+        "-path",
         "-created",
         "-modified",
         "-size",
     ],
-    "description": "Sort order for the listing; the '-' variants listed here sort in reverse.",
+    "description": "Sort order for the listing; a leading '-' sorts in reverse.",
 }
 
 
