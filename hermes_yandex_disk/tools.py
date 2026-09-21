@@ -12,8 +12,10 @@ for identifiers it copies back from an earlier result.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import uuid
 from collections.abc import Callable
 from typing import Any
 
@@ -336,6 +338,28 @@ def _upload_local(client: YandexDiskClient, path: str, local: str, overwrite: bo
     return size
 
 
+def _upload_from_url(client: YandexDiskClient, path: str, url: str, *, replacing: bool) -> str:
+    """Have Yandex fetch *url* into *path*; returns what happened to the target.
+
+    The fetch-from-internet endpoint takes no ``overwrite`` parameter, so replacing an
+    existing file is arranged here: Yandex fetches into a temporary name beside the
+    target, and only a fetch that ran to completion is moved over it. A fetch that
+    fails leaves the original where it was, which a delete-then-fetch would not.
+    """
+    if not replacing:
+        client.upload_from_url(path, url)
+        return "uploaded"
+    staging = f"{path}.{uuid.uuid4().hex}.part"
+    try:
+        client.upload_from_url(staging, url)
+        client.move(staging, path, overwrite=True)
+    except BaseException:
+        with contextlib.suppress(YandexDiskError):
+            client.delete(staging, permanently=True)
+        raise
+    return "replaced"
+
+
 @tool_handler
 def handle_upload(client: YandexDiskClient, args: dict[str, Any], root: str) -> dict[str, Any]:
     path = resolve(args.get("path"), root)
@@ -345,8 +369,15 @@ def handle_upload(client: YandexDiskClient, args: dict[str, Any], root: str) -> 
         return {"error": "Give exactly one of local_path or url."}
     _ensure_dir(client, _parent_of(path))
     if url:
-        client.upload_from_url(path, url)
-        return {"path": display(path, root), "source": url, "status": "uploaded"}
+        replacing = client.exists(path)
+        if replacing and not _flag(args, "overwrite"):
+            return {
+                "error": (
+                    f"{display(path, root)} already exists; pass overwrite=true to replace it."
+                )
+            }
+        status = _upload_from_url(client, path, url, replacing=replacing)
+        return {"path": display(path, root), "source": url, "status": status}
     size = _upload_local(client, path, local, _flag(args, "overwrite"))
     return {"path": display(path, root), "source": local, "bytes": size, "status": "uploaded"}
 

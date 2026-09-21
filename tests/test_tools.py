@@ -264,6 +264,38 @@ def test_upload_from_a_url_is_fetched_by_yandex(disk: FakeDisk) -> None:
     assert not any(r.url.host == "e.test" for r in disk.requests)
 
 
+def test_upload_from_a_url_refuses_an_existing_target(disk: FakeDisk) -> None:
+    """The fetch endpoint takes no overwrite, so the refusal has to come from here."""
+    disk.add_file("disk:/remote.bin", b"the file already there")
+    result = payload(tools.handle_upload({"path": "/remote.bin", "url": "https://e.test/f"}))
+    assert "already exists" in result["error"]
+    assert disk.files["disk:/remote.bin"] == b"the file already there"
+
+
+def test_upload_from_a_url_replaces_through_a_temporary_name(disk: FakeDisk) -> None:
+    disk.add_file("disk:/remote.bin", b"the file already there")
+    result = payload(
+        tools.handle_upload({"path": "/remote.bin", "url": "https://e.test/f", "overwrite": True})
+    )
+    assert result["status"] == "replaced"
+    assert disk.files["disk:/remote.bin"] == b"fetched-by-yandex"
+    assert [p for p in disk.files if p.endswith(".part")] == []
+
+
+def test_upload_from_a_url_keeps_the_original_when_the_fetch_fails(disk: FakeDisk) -> None:
+    """The replacement is staged, so a fetch Yandex cannot finish costs nothing."""
+    disk.add_file("disk:/remote.bin", b"the file already there")
+    disk.fail_routes[("POST", "/resources/upload")] = httpx.Response(
+        502, json={"description": "Yandex could not fetch the URL."}
+    )
+    result = payload(
+        tools.handle_upload({"path": "/remote.bin", "url": "https://e.test/f", "overwrite": True})
+    )
+    assert "could not fetch" in str(result)
+    assert disk.files["disk:/remote.bin"] == b"the file already there"
+    assert [p for p in disk.files if p.endswith(".part")] == []
+
+
 @pytest.mark.parametrize("args", [{}, {"local_path": "local.bin", "url": "https://e.test/f"}])
 def test_upload_needs_exactly_one_source(disk: FakeDisk, args: dict) -> None:
     """Neither source, or both — the handler refuses before touching anything."""

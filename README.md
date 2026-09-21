@@ -19,10 +19,12 @@ browser.
 
 - 🔒 **`YANDEX_DISK_ROOT` sandboxes the agent to one folder** — every path is checked against
   it, including ones the model invents and ones it copies back from an earlier result.
-- 🛟 **Nothing is overwritten or destroyed by accident** — writes, copies, moves and local
-  uploads refuse an existing destination unless you pass `overwrite`, deletes go to the bin by
-  default, and the bin can be restored from. The one exception is an upload from a `url`, which
-  Yandex performs itself: the flag is not forwarded there.
+- 🛟 **Nothing is overwritten or destroyed by accident** — writes, copies, moves and uploads
+  refuse an existing destination unless you pass `overwrite`, deletes go to the bin by default,
+  and the bin can be restored from. Replacing is never done by clearing the way first: an
+  upload from a `url` is staged beside the target and moved over it once Yandex has finished
+  fetching, and a download writes beside the local file and moves over it once the transfer is
+  complete. A transfer that fails costs you the new copy, never the one you already had.
 - 🎚 **`YANDEX_DISK_ACTIONS` decides what the agent may do at all** — a tool outside the
   allow-list is never registered, so it cannot be called or talked into being called.
 - 📂 **Fourteen tools over one credential** — browse, read, write, upload, download, copy,

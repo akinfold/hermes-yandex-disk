@@ -72,6 +72,11 @@ class FakeDisk:
         self.operations: dict[str, str] = {}
         self.requests: list[httpx.Request] = []
         self.fail_next: httpx.Response | None = None
+        #: Routes that answer with an error instead of doing the work, for as long as
+        #: they are listed: ``{("POST", "/resources/upload"): _error(...)}``. Unlike
+        #: ``fail_next`` this survives the requests a call makes before the one under
+        #: test.
+        self.fail_routes: dict[tuple[str, str], httpx.Response] = {}
         self._deferred = 0
         #: When False, the search endpoint 403s — a token whose app lacks the grant.
         self.search_allowed = True
@@ -137,6 +142,9 @@ class FakeDisk:
         return self._dispatch(request.method, route, query)
 
     def _dispatch(self, method: str, route: str, query: dict[str, str]) -> httpx.Response:
+        failure = self.fail_routes.get((method, route))
+        if failure is not None:
+            return failure
         table = {
             ("GET", "/"): lambda: _json(self._disk_info()),
             ("GET", "/resources"): lambda: self._get_resource(query),
