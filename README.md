@@ -178,7 +178,9 @@ workflows in this repository stay out of the security report.
 Point it at the repository root instead and the install still appears to succeed,
 but it copies a directory with no manifest and no `register(ctx)` in it: Hermes
 warns that it "may not be a valid Hermes plugin", asks for nothing, and enables the
-repository name, which nothing answers to. If you installed that way, remove
+repository name, which nothing answers to. `hermes plugins list` then still shows
+`yandex-disk` — the package nested in the clone is found — but shows it as **not
+enabled**, which is the symptom to look for. If you installed that way, remove
 `~/.hermes/plugins/hermes-yandex-disk` and install again with the directory named.
 
 **B. From PyPI** — discovered through the `hermes_agent.plugins` entry point:
