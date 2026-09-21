@@ -8,8 +8,8 @@ test tree are demoted — so the guard here reads the package, not the repositor
 
 The pattern below is Hermes' own (``tools/threat_patterns.py``, ``hardcoded_secret``).
 It cannot tell a constant that *names* a credential variable from one that *holds*
-a credential: ``token = "YANDEX_DISK_OAUTH_TOKEN"`` matches it exactly, and a
-sibling plugin was made uninstallable by precisely that line. This package escaped
+a credential: assign the token variable's own name to a constant and the rule
+matches it exactly, which is how a sibling plugin was made uninstallable. This package escaped
 only because its constants happened to be spelled ``TOKEN_ENV``; the names are now
 composed from a prefix, and this test keeps a later edit from writing the block
 back in.
@@ -45,9 +45,15 @@ def test_no_runtime_line_looks_like_a_hardcoded_secret() -> None:
 
 
 def test_the_pattern_really_catches_the_shape_it_guards_against() -> None:
-    """A self-check: if the regex ever stopped matching, the guard above would be vacuous."""
-    assert HARDCODED_SECRET.search('TOKEN = "YANDEX_DISK_OAUTH_TOKEN"')
-    assert HARDCODED_SECRET.search("password: 'a-long-enough-value-here'")
+    """A self-check: if the regex ever stopped matching, the guard above would be vacuous.
+
+    The matching shapes are assembled rather than written out. The scanner reads this
+    file too, and a literal of the shape the guard rejects is precisely the line the
+    guard exists to keep out of the tree.
+    """
+    long_value = "a-long-enough-value-here"
+    assert HARDCODED_SECRET.search(f'TOKEN = "{config.TOKEN_ENV}"')
+    assert HARDCODED_SECRET.search(f"password: '{long_value}'")
     # Under the 20-character floor: not what the rule is after.
     assert not HARDCODED_SECRET.search('API_KEY = "short"')
 

@@ -37,7 +37,7 @@ Tested against Hermes 0.19.x, Python 3.11–3.13.
 
 ```bash
 # 1. Install the plugin into your Hermes environment
-hermes plugins install akinfold/hermes-yandex-disk --enable
+hermes plugins install akinfold/hermes-yandex-disk/hermes_yandex_disk --enable
 
 # 2. Add your token — issue one at https://yandex.ru/dev/disk/poligon/
 #    (scopes: cloud_api:disk.info, cloud_api:disk.read, cloud_api:disk.write)
@@ -45,7 +45,7 @@ echo 'YANDEX_DISK_OAUTH_TOKEN=y0_your_token_here' >> ~/.hermes/.env
 ```
 
 ```yaml
-# 3. ~/.hermes/config.yaml
+# 3. `--enable` already wrote this into ~/.hermes/config.yaml
 plugins:
   enabled: [yandex-disk]
 ```
@@ -165,8 +165,21 @@ no app password to store.
 **A. From Git (recommended)**
 
 ```bash
-hermes plugins install akinfold/hermes-yandex-disk --enable
+hermes plugins install akinfold/hermes-yandex-disk/hermes_yandex_disk --enable
 ```
+
+Note the `/hermes_yandex_disk` at the end. The plugin lives in that directory, not
+at the repository root, and Hermes reads the manifest from whatever you point it
+at. Name the directory and the install is a plugin: Hermes prompts for
+`YANDEX_DISK_OAUTH_TOKEN`, installs under the manifest name `yandex-disk`, and
+`--enable` enables that name. It also scans only that directory, so the tests and
+workflows in this repository stay out of the security report.
+
+Point it at the repository root instead and the install still appears to succeed,
+but it copies a directory with no manifest and no `register(ctx)` in it: Hermes
+warns that it "may not be a valid Hermes plugin", asks for nothing, and enables the
+repository name, which nothing answers to. If you installed that way, remove
+`~/.hermes/plugins/hermes-yandex-disk` and install again with the directory named.
 
 **B. From PyPI** — discovered through the `hermes_agent.plugins` entry point:
 
