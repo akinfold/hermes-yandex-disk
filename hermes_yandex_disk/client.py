@@ -22,8 +22,9 @@ from __future__ import annotations
 
 import contextlib
 import os
-import tempfile
+import stat
 import time
+import uuid
 from typing import Any, BinaryIO
 
 import httpx
@@ -319,11 +320,20 @@ class YandexDiskClient:
         only once the stream has run to its end, so a download stopped by the size
         budget, an expired link or a dropped connection leaves neither a truncated
         file where a complete one is expected nor a destroyed older copy.
+
+        The exchange is arranged to be invisible otherwise: a symlinked destination is
+        written through rather than replaced, a new file gets the permissions the
+        umask asks for, and a file being replaced keeps its own. What it cannot keep
+        is a hardlink — the destination is a new inode afterwards, and the other names
+        for the old one still hold the bytes that were there before.
         """
         total = 0
         link = self.download_link(path)
-        folder = os.path.dirname(os.path.abspath(destination))
-        descriptor, staging = tempfile.mkstemp(dir=folder, prefix=".yadisk-", suffix=".part")
+        target = os.path.realpath(destination)
+        staging = os.path.join(os.path.dirname(target), f".yadisk-{uuid.uuid4().hex}.part")
+        # O_CREAT masks 0o666 through the umask exactly as open(..., "wb") would.
+        # tempfile.mkstemp would be shorter and would hand the finished file 0600.
+        descriptor = os.open(staging, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o666)
         try:
             with (
                 os.fdopen(descriptor, "wb") as handle,
@@ -339,7 +349,9 @@ class YandexDiskClient:
                             f"File is larger than the {max_bytes} byte limit for this tool."
                         )
                     handle.write(chunk)
-            os.replace(staging, destination)
+            with contextlib.suppress(OSError):
+                os.chmod(staging, stat.S_IMODE(os.stat(target).st_mode))
+            os.replace(staging, target)
         except BaseException:
             with contextlib.suppress(OSError):
                 os.unlink(staging)

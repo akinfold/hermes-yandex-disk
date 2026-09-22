@@ -10,6 +10,18 @@ from hermes_yandex_disk import config, tools
 from .conftest import FakeDisk, payload
 
 
+def _sent(disk: FakeDisk, method: str, route: str) -> list[dict[str, str]]:
+    """The query of every request the handler made to *route*, in order."""
+    from urllib.parse import parse_qs, urlparse
+
+    out = []
+    for request in disk.requests:
+        parsed = urlparse(str(request.url))
+        if request.method == method and parsed.path.endswith(route):
+            out.append({k: v[0] for k, v in parse_qs(parsed.query).items()})
+    return out
+
+
 @pytest.fixture(autouse=True)
 def _wire(wired: object) -> None:
     """Every test in this module talks to the fake disk."""
@@ -273,6 +285,12 @@ def test_upload_from_a_url_refuses_an_existing_target(disk: FakeDisk) -> None:
 
 
 def test_upload_from_a_url_replaces_through_a_temporary_name(disk: FakeDisk) -> None:
+    """Asserted on the requests, not on the outcome.
+
+    The fake overwrites a taken path without complaint, the way the real endpoint may
+    or may not — so the finished state looks identical whether the fetch was staged or
+    aimed straight at the target. Only the wire shows which one happened.
+    """
     disk.add_file("disk:/remote.bin", b"the file already there")
     result = payload(
         tools.handle_upload({"path": "/remote.bin", "url": "https://e.test/f", "overwrite": True})
@@ -280,6 +298,30 @@ def test_upload_from_a_url_replaces_through_a_temporary_name(disk: FakeDisk) -> 
     assert result["status"] == "replaced"
     assert disk.files["disk:/remote.bin"] == b"fetched-by-yandex"
     assert [p for p in disk.files if p.endswith(".part")] == []
+
+    fetches = _sent(disk, "POST", "/resources/upload")
+    assert len(fetches) == 1
+    staged = fetches[0]["path"]
+    assert staged != "disk:/remote.bin"
+    assert staged.startswith("disk:/remote.bin.") and staged.endswith(".part")
+    assert _sent(disk, "POST", "/resources/move") == [
+        {"from": staged, "path": "disk:/remote.bin", "overwrite": "true"}
+    ]
+
+
+def test_upload_from_a_url_clears_the_staged_copy_when_the_move_fails(disk: FakeDisk) -> None:
+    """The fetch succeeds here, so there is a real staged file to clean up."""
+    disk.add_file("disk:/remote.bin", b"the file already there")
+    disk.fail_routes[("POST", "/resources/move")] = httpx.Response(
+        507, json={"description": "Not enough space on the disk."}
+    )
+    result = payload(
+        tools.handle_upload({"path": "/remote.bin", "url": "https://e.test/f", "overwrite": True})
+    )
+    assert "Not enough space" in str(result)
+    assert disk.files["disk:/remote.bin"] == b"the file already there"
+    assert [p for p in disk.files if p.endswith(".part")] == []
+    assert [p for p in disk.trash if p.endswith(".part")] == []
 
 
 def test_upload_from_a_url_keeps_the_original_when_the_fetch_fails(disk: FakeDisk) -> None:

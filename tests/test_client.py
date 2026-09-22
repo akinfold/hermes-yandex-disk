@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import stat
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -249,6 +251,47 @@ def test_download_to_file_keeps_the_existing_copy_when_the_download_is_refused(
         client.download_to_file("disk:/a.txt", str(target), max_bytes=3)
     assert target.read_bytes() == b"the copy already on this machine"
     assert list(tmp_path.iterdir()) == [target]
+
+
+def test_download_to_file_gives_a_new_file_the_permissions_the_umask_asks_for(
+    client: YandexDiskClient, disk: FakeDisk, tmp_path
+) -> None:
+    """Staging must not hand the finished file the private mode a temp file is born with."""
+    disk.add_file("disk:/a.txt", b"hello")
+    target = tmp_path / "fresh.bin"
+    previous = os.umask(0o022)
+    try:
+        client.download_to_file("disk:/a.txt", str(target), max_bytes=100)
+    finally:
+        os.umask(previous)
+    assert stat.S_IMODE(os.stat(target).st_mode) == 0o644
+
+
+def test_download_to_file_leaves_the_replaced_file_its_own_permissions(
+    client: YandexDiskClient, disk: FakeDisk, tmp_path
+) -> None:
+    """Refreshing a file someone else is allowed to read must not lock them out."""
+    disk.add_file("disk:/a.txt", b"hello")
+    target = tmp_path / "shared.csv"
+    target.write_bytes(b"stale")
+    # A mode someone other than the owner can read is the whole point of the fixture.
+    os.chmod(target, 0o664)  # nosec B103
+    client.download_to_file("disk:/a.txt", str(target), max_bytes=100)
+    assert stat.S_IMODE(os.stat(target).st_mode) == 0o664
+    assert target.read_bytes() == b"hello"
+
+
+def test_download_to_file_writes_through_a_symlinked_destination(
+    client: YandexDiskClient, disk: FakeDisk, tmp_path
+) -> None:
+    disk.add_file("disk:/a.txt", b"hello")
+    real = tmp_path / "real.bin"
+    real.write_bytes(b"stale")
+    link = tmp_path / "link.bin"
+    link.symlink_to(real)
+    client.download_to_file("disk:/a.txt", str(link), max_bytes=100)
+    assert link.is_symlink()
+    assert real.read_bytes() == b"hello"
 
 
 def test_exists_tells_a_missing_path_from_a_present_one(
