@@ -79,6 +79,13 @@ Restart Hermes and ask it: **"How much space is left on my Yandex Disk?"**
 Every read result carries the `path` the write tools take as input, so the agent can chain
 them without guessing.
 
+> **Changed in 0.5.0.** `yadisk_upload` from a `url` used to ignore `overwrite`. Yandex'
+> fetch-from-internet endpoint has no such parameter and the plugin did not stand in for it,
+> so an upload onto a path that was already taken did whatever the server decided — the API
+> documentation does not say what. It is now refused unless you pass `overwrite=true`, the
+> same as every other write. If anything of yours uploads by URL over a file that is already
+> there, add the flag before upgrading.
+
 ## Configuration
 
 | Variable | Required | Default | Meaning |
