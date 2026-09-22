@@ -28,6 +28,7 @@ hermes_yandex_disk/
   plugin.yaml   # the manifest Hermes reads
 tests/          # unit tests against an in-memory fake of the API (no network)
 tests/e2e/      # live tests, marked `e2e`, deselected by default
+tests/install/  # installs the build into a real Hermes by every README route, marked `install`
 ```
 
 ## Ground rules
@@ -90,6 +91,16 @@ skips itself when the file and the environment variable are both absent. Each te
 inside a `hermes-e2e-<id>` folder that teardown removes permanently even when an assertion
 fails — if you add a test, keep that property.
 
+## The install check
+
+`tests/install/`, marked `install`, installs the built wheel, the drop-in archive, and the Git
+tree into a real Hermes, set up the way the Hermes installer sets it up, using the commands
+the README gives, and asks Hermes what it loaded. Change an install instruction in the README
+and you change the test: `test_readme_gives_the_commands_under_test`, which runs with the unit
+tests, fails until the two agree. The **Install check** workflow runs it on every pull request
+against the latest Hermes release and against Hermes `main`; the docstring of
+`tests/install/test_install.py` says how to run it locally.
+
 ## Commits and pull requests
 
 Small, focused commits with imperative subjects ("Add trash_restore tool", not "added stuff").
@@ -100,9 +111,11 @@ In the PR, say what changed and why, and tick the checklist in the template.
 1. Bump the version in **three** files, which must agree: `pyproject.toml`,
    `hermes_yandex_disk/__init__.py`, `hermes_yandex_disk/plugin.yaml`. A unit test enforces it.
 2. `git tag vX.Y.Z && git push origin vX.Y.Z`.
-3. `release-publish.yml` builds, creates the GitHub Release, and — if the repository variable
-   `PUBLISH_TO_PYPI` is `true` — publishes to PyPI through Trusted Publishing. The `pypi`
-   environment has a required reviewer, so the irreversible step waits for a human.
+3. `release-publish.yml` builds, runs the install check on exactly those artifacts, and only
+   then creates the GitHub Release and — if the repository variable `PUBLISH_TO_PYPI` is
+   `true` — publishes to PyPI through Trusted Publishing. If the install check fails, nothing
+   is released: fix it, and move the tag or bump the version. The `pypi` environment has a
+   required reviewer, so the irreversible step waits for a human.
 4. Verify what was published, not just what was built: install the version from PyPI into a
    throwaway venv and check `__version__`, the entry point, and that `register()` still works.
 
