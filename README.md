@@ -38,11 +38,13 @@ Tested against Hermes 0.19.x, Python 3.11–3.13.
 ## Quick start
 
 ```bash
-# 1. Install the plugin into your Hermes environment
+# 1. Install the plugin into your Hermes environment (or from PyPI — see
+#    Installing, B). It asks for your token; issue one at
+#    https://yandex.ru/dev/disk/poligon/
+#    (scopes: cloud_api:disk.info, cloud_api:disk.read, cloud_api:disk.write)
 hermes plugins install akinfold/hermes-yandex-disk/hermes_yandex_disk --enable
 
-# 2. Add your token — issue one at https://yandex.ru/dev/disk/poligon/
-#    (scopes: cloud_api:disk.info, cloud_api:disk.read, cloud_api:disk.write)
+# 2. Skipped the question, or installed another way? Add the token yourself:
 echo 'YANDEX_DISK_OAUTH_TOKEN=y0_your_token_here' >> ~/.hermes/.env
 ```
 
@@ -192,17 +194,39 @@ repository name, which nothing answers to. `hermes plugins list` then still show
 enabled**, which is the symptom to look for. If you installed that way, remove
 `~/.hermes/plugins/hermes-yandex-disk` and install again with the directory named.
 
-**B. From PyPI** — discovered through the `hermes_agent.plugins` entry point:
+**B. From PyPI** — install the package into the virtualenv Hermes runs from, then
+enable it. With the standard Hermes install that virtualenv is
+`~/.hermes/hermes-agent/venv` (`/usr/local/lib/hermes-agent/venv` if the installer ran
+as root on Linux), and Hermes keeps its own `uv` in `~/.hermes/bin`:
 
 ```bash
-pip install hermes-yandex-disk
+~/.hermes/bin/uv pip install --python ~/.hermes/hermes-agent/venv/bin/python hermes-yandex-disk
+hermes plugins enable yandex-disk
 ```
 
-Then add `yandex-disk` to `plugins.enabled` in `~/.hermes/config.yaml`.
+A bare `pip install hermes-yandex-disk` does not get there: the installer builds that
+virtualenv with `uv` and without `pip`, so the `pip` on your `PATH` belongs to some other
+Python, and Hermes never sees the plugin. If you installed Hermes another way, install the
+package into whichever environment the `hermes` command runs from. Hermes finds it through
+the `hermes_agent.plugins` entry point. Nothing asks for the token on this path — add it to
+`~/.hermes/.env` as in the [Quick start](#quick-start).
 
-**C. Drop-in** — unzip `hermes-yandex-disk-plugin-<version>.zip` from a
-[release](https://github.com/akinfold/hermes-yandex-disk/releases) under `~/.hermes/plugins/`
-so you get `~/.hermes/plugins/yandex-disk/plugin.yaml`, then enable it the same way.
+**C. Drop-in** — download `hermes-yandex-disk-plugin-<version>.zip` from a
+[release](https://github.com/akinfold/hermes-yandex-disk/releases), then unzip it into
+`~/.hermes/plugins/` and enable it:
+
+```bash
+unzip hermes-yandex-disk-plugin-<version>.zip -d ~/.hermes/plugins/
+hermes plugins enable yandex-disk
+```
+
+You should end up with `~/.hermes/plugins/yandex-disk/plugin.yaml`. As with B, add the
+token to `~/.hermes/.env` yourself. The archive brings no dependencies; the one the plugin
+needs, `httpx`, is a Hermes dependency already.
+
+All three are checked before every release by installing the build into a real Hermes —
+the latest release and `main` — exactly as written here; see
+[Checking the install paths](#checking-the-install-paths).
 
 ## Why REST and not WebDAV
 
@@ -245,6 +269,20 @@ account login the tests check `yadisk_disk_info` against. On GitHub Actions, run
 workflow manually; it reads the secrets `YANDEX_DISK_OAUTH_TOKEN` and, optionally,
 `YANDEX_DISK_E2E_LOGIN` from the `yandex-disk-e2e` environment, and its `install_hermes` input (on
 by default) also installs `hermes-agent`, so the real credential resolver is exercised.
+
+## Checking the install paths
+
+The `install`-marked tests in `tests/install/` install the built plugin into a real Hermes,
+set up the way the official installer sets it up, by each route in [Installing](#installing)
+— running the README's own commands — and then ask Hermes what it loaded: the plugin must be
+listed as enabled, load without error, and give the agent its tools. They also check that
+installing from the repository root still looks the way this README describes. A fast unit
+test keeps the commands in the tests and in this README identical.
+
+The **Install check** workflow runs them against the latest Hermes release and against
+Hermes `main` on every pull request, and on every release tag before anything is published:
+the GitHub Release and the PyPI upload both wait for it. To run them locally, see the
+docstring of `tests/install/test_install.py`.
 
 ## Related Hermes plugins
 

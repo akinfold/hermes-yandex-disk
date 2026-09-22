@@ -19,7 +19,11 @@ provides_tools:
   - yadisk_publish
   - yadisk_delete
   - yadisk_trash_empty
+# `hermes plugins install` asks for each of these that ~/.hermes/.env lacks.
+# Hermes reads `name`, `description`, `url` and `secret`, and drops an entry
+# without a `name`.
 requires_env:
-  - key: YANDEX_DISK_OAUTH_TOKEN
-    prompt: "Yandex Disk OAuth token (scopes: cloud_api:disk.info, cloud_api:disk.read, cloud_api:disk.write)"
+  - name: YANDEX_DISK_OAUTH_TOKEN
+    description: "Yandex Disk OAuth token (scopes: cloud_api:disk.info, cloud_api:disk.read, cloud_api:disk.write)"
     url: "https://yandex.ru/dev/disk/poligon/"
+    secret: true

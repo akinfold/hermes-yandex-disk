@@ -49,8 +49,11 @@ include = ["hermes_yandex_disk", "tests", "README.md", "LICENSE"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["e2e: live tests that hit the real Yandex Disk API (deselected by default)."]
-addopts = "-m 'not e2e'"
+markers = [
+    "e2e: live tests that hit the real Yandex Disk API (deselected by default).",
+    "install: install the built plugin into a real Hermes (deselected by default).",
+]
+addopts = "-m 'not e2e and not install'"
 
 [tool.ruff]
 line-length = 100
