@@ -267,8 +267,11 @@ The suite skips itself when no credentials are available, and an environment var
 the file: `YANDEX_DISK_OAUTH_TOKEN` for the token and, optionally, `YANDEX_DISK_E2E_LOGIN` for the
 account login the tests check `yadisk_disk_info` against. On GitHub Actions, run the **E2E (live)**
 workflow manually; it reads the secrets `YANDEX_DISK_OAUTH_TOKEN` and, optionally,
-`YANDEX_DISK_E2E_LOGIN` from the `yandex-disk-e2e` environment, and its `install_hermes` input (on
-by default) also installs `hermes-agent`, so the real credential resolver is exercised.
+`YANDEX_DISK_E2E_LOGIN` from the `yandex-disk-e2e` environment. It runs the plugin inside a real
+Hermes, set up the way the Hermes installer sets it up, so the real credential resolver is
+exercised: the latest Hermes release by default, and its `hermes` input switches to Hermes `main` or
+to no Hermes at all. With Hermes, the run fails outright if the plugin cannot import it, rather than
+testing the plugin's stand-ins instead.
 
 ## Checking the install paths
 
