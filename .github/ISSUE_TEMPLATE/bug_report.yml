@@ -41,7 +41,7 @@ body:
     id: hermes-version
     attributes:
       label: Hermes Agent version
-      placeholder: "0.19.x"
+      placeholder: "0.21.5"
   - type: input
     id: python-version
     attributes:
