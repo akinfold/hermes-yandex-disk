@@ -94,7 +94,7 @@ fails — if you add a test, keep that property.
 ## The install check
 
 `tests/install/`, marked `install`, installs the Git tree, the drop-in archive, and (on a
-Hermes from the 0.21-era installer) the built wheel into a real Hermes set up by its official
+Hermes in the older layout) the built wheel into a real Hermes set up by its official
 installer, using the commands the README gives, and asks Hermes what it loaded. Change an
 install instruction in the README and you change the test:
 `test_readme_gives_the_commands_under_test`, which runs with the unit tests, fails until the
