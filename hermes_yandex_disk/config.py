@@ -135,7 +135,17 @@ def allowed_actions() -> frozenset[str]:
     return frozenset(allowed)
 
 
-def build_client() -> YandexDiskClient:
+#: How long, in seconds, each phase of the load-time search probe may take. The
+#: probe runs inside Hermes' plugin load, which Hermes 0.21.5 and later cap at
+#: 10 s for import and ``register()`` together, dropping every tool of a plugin
+#: that overruns. So the probe is one attempt, without retries, bounded by this;
+#: an unanswered probe only hides search until the next load.
+SEARCH_PROBE_TIMEOUT = 2.0
+
+
+def build_client(
+    *, request_timeout: float | None = None, max_retries: int = DEFAULT_MAX_RETRIES
+) -> YandexDiskClient:
     """Create a client from the environment. Raises :class:`ConfigError` if unset."""
     value = token()
     if not value:
@@ -147,8 +157,8 @@ def build_client() -> YandexDiskClient:
     return YandexDiskClient(
         value,
         base_url=get_provider_env(BASE_URL_ENV) or API_BASE,
-        timeout=timeout(),
-        max_retries=DEFAULT_MAX_RETRIES,
+        timeout=timeout() if request_timeout is None else request_timeout,
+        max_retries=max_retries,
     )
 
 
@@ -163,4 +173,9 @@ def search_supported() -> bool:
     value = token()
     if not value:
         return False
-    return capabilities.search_available(value, build_client)
+    return capabilities.search_available(value, _probe_client)
+
+
+def _probe_client() -> YandexDiskClient:
+    """A client for the load-time probe: one attempt, bounded by SEARCH_PROBE_TIMEOUT."""
+    return build_client(request_timeout=min(timeout(), SEARCH_PROBE_TIMEOUT), max_retries=0)
