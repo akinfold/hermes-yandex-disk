@@ -94,9 +94,50 @@ def test_config_search_supported_probes_with_the_configured_token(
     monkeypatch: pytest.MonkeyPatch, disk: FakeDisk
 ) -> None:
     monkeypatch.setenv(config.TOKEN_ENV, "live")
-    monkeypatch.setattr(config, "build_client", _factory(disk, "live"))
+    make = _factory(disk, "live")
+    monkeypatch.setattr(config, "build_client", lambda **_: make())
     disk.search_allowed = True
     assert config.search_supported() is True
     disk.search_allowed = False
     # Cached from the first probe, so the verdict is stable within a process.
     assert config.search_supported() is True
+
+
+#: How each stand-in client below was built.
+_BUILT: list[dict] = []
+
+
+class _Recorder:
+    """Stands in for YandexDiskClient and remembers how it was built."""
+
+    def __init__(self, token: str, **kwargs) -> None:
+        _BUILT.append(kwargs)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc) -> None:
+        pass
+
+    def search(self, query: str, limit: int) -> None:
+        raise httpx.ConnectTimeout("no answer")
+
+
+@pytest.mark.parametrize(
+    "configured,expected",
+    [(None, config.SEARCH_PROBE_TIMEOUT), ("60", config.SEARCH_PROBE_TIMEOUT), ("0.5", 0.5)],
+)
+def test_the_load_time_probe_is_one_short_attempt(
+    monkeypatch: pytest.MonkeyPatch, configured: str | None, expected: float
+) -> None:
+    """Hermes gives a plugin 10 s to load; a slow API must not spend them."""
+    monkeypatch.setenv(config.TOKEN_ENV, "live")
+    if configured is None:
+        monkeypatch.delenv(config.TIMEOUT_ENV, raising=False)
+    else:
+        monkeypatch.setenv(config.TIMEOUT_ENV, configured)
+    monkeypatch.setattr(config, "YandexDiskClient", _Recorder)
+    _BUILT.clear()
+    assert config.search_supported() is False
+    assert [(b["timeout"], b["max_retries"]) for b in _BUILT] == [(expected, 0)]
+    assert config.SEARCH_PROBE_TIMEOUT * 2 < 10

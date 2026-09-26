@@ -150,7 +150,10 @@ YANDEX_DISK_ACTIONS=list,read_file  # exactly two tools
 `search` is capability-gated: Yandex grants its search endpoint per application rather than
 per token scope, so the plugin probes it once at load and registers the tool only if the probe
 succeeds. Granting `read` therefore also grants a whole-disk search wherever the token is
-allowed to run one; name the tools individually to withhold it.
+allowed to run one; name the tools individually to withhold it. The probe is one request that
+waits two seconds at most, because Hermes gives a plugin ten seconds to load and drops every
+tool of one that takes longer: if Yandex does not answer in time, search is simply missing
+until the next start.
 
 Groups and individual tool names mix freely, with or without the `yadisk_` prefix, so you can
 paste straight from the tool table above. A name that matches nothing is dropped: a typo can

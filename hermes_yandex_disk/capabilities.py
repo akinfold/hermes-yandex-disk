@@ -9,8 +9,10 @@ reliable signal is to make the call once and look at the status.
 :func:`search_available` does exactly that — a single, cheap, never-raising
 probe, cached per token for the process. ``register(ctx)`` uses it to decide
 whether the search tool is offered at all, so a token that cannot search never
-sees the tool advertised. The probe runs once at load; ``check_fn`` on the
-registered tool stays the cheap credential check.
+sees the tool advertised. The probe runs once at load, as a single attempt with
+a short timeout (see ``config.SEARCH_PROBE_TIMEOUT``), because Hermes caps how
+long a plugin may take to load; ``check_fn`` on the registered tool stays the
+cheap credential check.
 """
 
 from __future__ import annotations
