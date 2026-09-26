@@ -1,12 +1,11 @@
 """Install the plugin into a real Hermes, every way README.md says to.
 
-Nothing here is simulated. Each test lays out a fresh home directory the way
-the official Hermes installer does — the Hermes checkout and its virtualenv
-under ``~/.hermes/hermes-agent``, Hermes' own ``uv`` at ``~/.hermes/bin/uv``,
-the ``hermes`` launcher in ``~/.local/bin`` — and runs the commands README.md
-gives, as written, with ``HOME`` pointing there. Success is whatever Hermes
+Nothing here is simulated. The tests run against a Hermes that its official
+installer set up in this account — the ``setup-hermes`` action does that in CI —
+and run the commands README.md gives, as written. Success is whatever Hermes
 reports afterwards: ``hermes plugins list``, and the plugins and tools its own
-plugin manager hands the agent (see ``probe.py``).
+plugin manager hands the agent (see ``probe.py``, run in Hermes' own Python,
+which ``hermes_env.py`` finds for either installer).
 
 Where the tests depart from the README text, and why:
 
@@ -17,15 +16,21 @@ Where the tests depart from the README text, and why:
 * the drop-in archive is the one about to be attached to the release, and its
   ``<version>`` placeholder is filled in.
 
-Deselected by default. The ``Install check`` workflow runs it before every
-release, against the latest Hermes release and against Hermes ``main``, which
-is what the installer checks out. To run it locally, build the artifacts the
-way ``release-build.yml`` does, then point it at a Hermes checkout that has its
-virtualenv in ``venv/``, at a ``uv`` binary, and at a commit GitHub has::
+The PyPI route runs only on a Hermes from the 0.21-era installer, which is the
+only one README.md gives a PyPI command for; on a pm-built Hermes it is skipped.
 
-    HERMES_CHECKOUT=~/.hermes/hermes-agent UV="$(command -v uv)" \\
-    INSTALL_DIST=dist INSTALL_REF="$(git rev-parse HEAD)" \\
-    python -m pytest -m install
+Each test changes the Hermes it runs against, then puts back what it changed:
+the plugin directories, ``config.yaml``, ``.env``, and a package installed from
+PyPI. They still install into a real ``~/.hermes``, so they refuse to run unless
+``INSTALL_CHECK_DISPOSABLE_HOME=1`` says that Hermes is a throwaway one.
+
+Deselected by default. The ``Install check`` workflow runs them before every
+release, against the latest Hermes release and against Hermes ``main``. To run
+them yourself, do it in a container or VM with Hermes installed by its
+installer, after building the artifacts the way ``release-build.yml`` does::
+
+    INSTALL_CHECK_DISPOSABLE_HOME=1 INSTALL_DIST=dist \\
+    INSTALL_REF="$(git rev-parse HEAD)" python -m pytest -m install
 """
 
 from __future__ import annotations
@@ -41,6 +46,8 @@ from pathlib import Path
 
 import pytest
 
+from .hermes_env import hermes_python, is_pm_install
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VERSION = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"][
     "version"
@@ -50,6 +57,9 @@ PLUGIN = "yandex-disk"
 TOOLSET = "yandex_disk"
 PROJECT = "hermes-yandex-disk"
 REQUIRED_ENV = ("YANDEX_DISK_OAUTH_TOKEN",)
+#: Every variable the plugin reads its token from: the manifest's, and the alias
+#: config.py also accepts.
+TOKEN_ENV = (*REQUIRED_ENV, "YANDEX_DISK_API_KEY")
 
 #: What an install gives the agent before YANDEX_DISK_ACTIONS says otherwise:
 #: every tool in the manifest. ``yadisk_search`` is not among them: the plugin
@@ -78,11 +88,14 @@ DEFAULT_TOOLS = {
 # the two in step, so the tests below cannot drift into checking something the
 # README does not say.
 GIT_INSTALL = "hermes plugins install akinfold/hermes-yandex-disk/hermes_yandex_disk --enable"
+GIT_UPGRADE = GIT_INSTALL + " --force"
+#: For a Hermes from the 0.21-era installer only; see README.md, B.
 PYPI_INSTALL = (
     "~/.hermes/bin/uv pip install --python ~/.hermes/hermes-agent/venv/bin/python"
     " hermes-yandex-disk"
 )
 DROPIN_INSTALL = "unzip hermes-yandex-disk-plugin-<version>.zip -d ~/.hermes/plugins/"
+DROPIN_UPGRADE = DROPIN_INSTALL.replace("unzip ", "unzip -o ")
 ENABLE = "hermes plugins enable yandex-disk"
 ADD_CREDENTIALS = "echo 'YANDEX_DISK_OAUTH_TOKEN=y0_your_token_here' >> ~/.hermes/.env"
 
@@ -96,7 +109,7 @@ PROMPT_ANSWERS = {"YANDEX_DISK_OAUTH_TOKEN": "install-check-not-a-token"}
 
 install = pytest.mark.install
 
-# Variables that would let the developer's own setup leak into the sandbox.
+# Variables that would let the developer's own setup leak into the commands.
 _LEAKY_ENV = re.compile(r"^(YANDEX_|HERMES_|VIRTUAL_ENV$|CONDA_|PYTHONPATH$|PYTHONHOME$)")
 
 
@@ -115,7 +128,7 @@ def _one(pattern: str) -> Path:
 
 @dataclass
 class Home:
-    """A home directory laid out like the official Hermes installer's."""
+    """The account the official Hermes installer set Hermes up in."""
 
     path: Path
     env: dict[str, str]
@@ -151,7 +164,7 @@ class Home:
 
     def probe(self) -> dict:
         """What Hermes' own plugin manager loaded; see probe.py."""
-        python = self.hermes_home / "hermes-agent" / "venv" / "bin" / "python"
+        python = hermes_python(self.hermes_home)
         out = self.run(f"'{python}' '{Path(__file__).with_name('probe.py')}'")
         line = next(line for line in reversed(out.splitlines()) if line.startswith("PROBE "))
         report = json.loads(line.removeprefix("PROBE "))
@@ -166,30 +179,59 @@ class Home:
         lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
         return dict(line.split("=", 1) for line in lines if "=" in line and line[0] != "#")
 
+    def credentials(self) -> dict[str, str]:
+        """This plugin's variables in ``~/.hermes/.env``; the installer writes its own there too."""
+        return {key: value for key, value in self.dotenv().items() if key in TOKEN_ENV}
+
+
+class _Snapshot:
+    """The parts of ``~/.hermes`` an install changes, to put back afterwards."""
+
+    def __init__(self, hermes_home: Path, keep: Path) -> None:
+        self.hermes_home = hermes_home
+        self.plugins = hermes_home / "plugins"
+        self.saved_plugins = keep / "plugins"
+        if self.plugins.is_dir():
+            shutil.copytree(self.plugins, self.saved_plugins, symlinks=True)
+        self.files = {
+            name: (hermes_home / name).read_bytes() if (hermes_home / name).exists() else None
+            for name in ("config.yaml", ".env")
+        }
+
+    def restore(self) -> None:
+        shutil.rmtree(self.plugins, ignore_errors=True)
+        if self.saved_plugins.is_dir():
+            shutil.copytree(self.saved_plugins, self.plugins, symlinks=True)
+        for name, content in self.files.items():
+            path = self.hermes_home / name
+            if content is None:
+                path.unlink(missing_ok=True)
+            else:
+                path.write_bytes(content)
+
 
 @pytest.fixture
-def home(tmp_path: Path) -> Home:
-    checkout = Path(_required("HERMES_CHECKOUT")).expanduser().resolve()
-    uv = Path(_required("UV")).expanduser().resolve()
-    root = tmp_path / "home"
-    (root / ".hermes" / "bin").mkdir(parents=True)
-    (root / ".hermes" / "bin" / "uv").symlink_to(uv)
-    (root / ".hermes" / "hermes-agent").symlink_to(checkout)
-    (root / ".local" / "bin").mkdir(parents=True)
-    (root / ".local" / "bin" / "hermes").symlink_to(checkout / "venv" / "bin" / "hermes")
-
+def home(tmp_path: Path):
+    if os.environ.get("INSTALL_CHECK_DISPOSABLE_HOME") != "1":
+        pytest.fail(
+            "these tests install into the real ~/.hermes; set INSTALL_CHECK_DISPOSABLE_HOME=1 "
+            "only where that Hermes is a throwaway one (see the module docstring)"
+        )
+    root = Path.home()
     env = {key: value for key, value in os.environ.items() if not _LEAKY_ENV.match(key)}
-    env.setdefault("UV_CACHE_DIR", str(Path.home() / ".cache" / "uv"))
     env.update(
-        HOME=str(root),
-        HERMES_HOME=str(root / ".hermes"),
         PATH=os.pathsep.join([str(root / ".local" / "bin"), env.get("PATH", "")]),
         COLUMNS="500",
         NO_COLOR="1",
     )
     home = Home(root, env)
     assert home.listed() == [], f"{PLUGIN} is already visible to this Hermes before the install"
-    return home
+    assert home.credentials() == {}, "a Yandex Disk token is already in ~/.hermes/.env"
+    snapshot = _Snapshot(home.hermes_home, tmp_path)
+    try:
+        yield home
+    finally:
+        snapshot.restore()
 
 
 def _flat(text: str) -> str:
@@ -216,25 +258,47 @@ def _assert_loaded(home: Home, *, source: str) -> None:
 
 def test_readme_gives_the_commands_under_test() -> None:
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    for command in (GIT_INSTALL, PYPI_INSTALL, DROPIN_INSTALL, ENABLE, ADD_CREDENTIALS):
+    for command in (
+        GIT_INSTALL,
+        GIT_UPGRADE,
+        PYPI_INSTALL,
+        DROPIN_INSTALL,
+        DROPIN_UPGRADE,
+        ENABLE,
+        ADD_CREDENTIALS,
+    ):
         assert command in readme, f"README.md no longer says:\n{command}"
     assert f"~/.hermes/plugins/{PLUGIN}/plugin.yaml" in readme
 
 
 @install
-def test_git_install_asks_for_credentials_and_loads(home: Home) -> None:
+def test_git_install_asks_for_credentials_loads_and_upgrades(home: Home) -> None:
+    ref = f" --ref {_required('INSTALL_REF')}"
     answers = "".join(PROMPT_ANSWERS[name] + "\n" for name in REQUIRED_ENV)
-    out = _flat(home.run(f"{GIT_INSTALL} --ref {_required('INSTALL_REF')}", answers=answers))
+    out = _flat(home.run(GIT_INSTALL + ref, answers=answers))
 
     assert "may not be a valid Hermes plugin" not in out, out
     for name in REQUIRED_ENV:
         assert f"{name}:" in out, f"the install never asked for {name}:\n{out}"
-    assert home.dotenv() == PROMPT_ANSWERS
+    assert home.credentials() == PROMPT_ANSWERS
+    _assert_loaded(home, source="user")
+
+    # README.md's upgrade: the same command with --force. The token is already
+    # there, so nothing is asked again.
+    out = _flat(home.run(GIT_UPGRADE + ref))
+    for name in REQUIRED_ENV:
+        assert f"{name}:" not in out, out
+    assert home.credentials() == PROMPT_ANSWERS
     _assert_loaded(home, source="user")
 
 
 @install
 def test_pypi_install_loads(home: Home) -> None:
+    if is_pm_install(home.hermes_home):
+        pytest.skip(
+            "this Hermes runs from environments its package manager builds; README.md gives "
+            "the PyPI command only for a Hermes from the 0.21-era installer"
+        )
     wheel = _one("*.whl")
     try:
         home.run(PYPI_INSTALL.removesuffix(PROJECT) + str(wheel))
@@ -242,7 +306,6 @@ def test_pypi_install_loads(home: Home) -> None:
         home.run(ADD_CREDENTIALS)
         _assert_loaded(home, source="entrypoint")
     finally:
-        # One virtualenv serves every test in a local run; leave it as found.
         home.run(
             "~/.hermes/bin/uv pip uninstall --python ~/.hermes/hermes-agent/venv/bin/python "
             + PROJECT,
@@ -251,22 +314,28 @@ def test_pypi_install_loads(home: Home) -> None:
 
 
 @install
-def test_dropin_archive_loads(home: Home) -> None:
+def test_dropin_archive_loads_and_upgrades(home: Home) -> None:
     archive = _one(f"{PROJECT}-plugin-*.zip")
     assert archive.name == f"{PROJECT}-plugin-{VERSION}.zip", archive.name
     shutil.copy(archive, home.path / archive.name)
+    try:
+        home.run(DROPIN_INSTALL.replace("<version>", VERSION))
+        assert (home.hermes_home / "plugins" / PLUGIN / "plugin.yaml").is_file()
+        home.run(ENABLE)
+        home.run(ADD_CREDENTIALS)
+        _assert_loaded(home, source="user")
 
-    home.run(DROPIN_INSTALL.replace("<version>", VERSION))
-    assert (home.hermes_home / "plugins" / PLUGIN / "plugin.yaml").is_file()
-    home.run(ENABLE)
-    home.run(ADD_CREDENTIALS)
-    _assert_loaded(home, source="user")
+        # README.md's upgrade: unzip the new archive over the old one.
+        home.run(DROPIN_UPGRADE.replace("<version>", VERSION))
+        _assert_loaded(home, source="user")
+    finally:
+        (home.path / archive.name).unlink(missing_ok=True)
 
 
 @install
 def test_repository_root_install_shows_the_documented_symptom(home: Home) -> None:
-    """README.md: it looks like success, asks for nothing, and lists as not enabled."""
-    out = _flat(home.run(f"{ROOT_INSTALL} --ref {_required('INSTALL_REF')}"))
+    """README.md: a warning, no questions, and the plugin listed as not enabled."""
+    out = _flat(home.run(f"{ROOT_INSTALL} --ref {_required('INSTALL_REF')}", check=False))
 
     assert "may not be a valid Hermes plugin" in out, out
     for name in REQUIRED_ENV:

@@ -33,14 +33,14 @@ browser.
 - 🔑 **One OAuth token, nothing proxied** — the plugin talks to `cloud-api.yandex.net`
   directly; no third-party service sees your files or your token.
 
-Tested against Hermes 0.19.x, Python 3.11–3.13.
+Checked before every release against the latest Hermes release and Hermes `main`, each
+installed by its official installer; Python 3.11–3.14.
 
 ## Quick start
 
 ```bash
-# 1. Install the plugin into your Hermes environment (or from PyPI — see
-#    Installing, B). It asks for your token; issue one at
-#    https://yandex.ru/dev/disk/poligon/
+# 1. Install the plugin into Hermes (other ways: see Installing). It asks for
+#    your token; issue one at https://yandex.ru/dev/disk/poligon/
 #    (scopes: cloud_api:disk.info, cloud_api:disk.read, cloud_api:disk.write)
 hermes plugins install akinfold/hermes-yandex-disk/hermes_yandex_disk --enable
 
@@ -186,30 +186,42 @@ at. Name the directory and the install is a plugin: Hermes prompts for
 `--enable` enables that name. It also scans only that directory, so the tests and
 workflows in this repository stay out of the security report.
 
-Point it at the repository root instead and the install still appears to succeed,
-but it copies a directory with no manifest and no `register(ctx)` in it: Hermes
-warns that it "may not be a valid Hermes plugin", asks for nothing, and enables the
-repository name, which nothing answers to. `hermes plugins list` then still shows
-`yandex-disk` — the package nested in the clone is found — but shows it as **not
-enabled**, which is the symptom to look for. If you installed that way, remove
-`~/.hermes/plugins/hermes-yandex-disk` and install again with the directory named.
+Point it at the repository root instead and Hermes copies a directory with no
+manifest and no `register(ctx)` in it: it warns that it "may not be a valid Hermes
+plugin", asks for no token, and does not enable the plugin. `hermes plugins list`
+then still shows `yandex-disk` — the package nested in the clone is found — but
+shows it as **not enabled**, which is the symptom to look for. If you installed
+that way, remove `~/.hermes/plugins/hermes-yandex-disk` and install again with the
+directory named.
 
-**B. From PyPI** — install the package into the virtualenv Hermes runs from, then
-enable it. With the standard Hermes install that virtualenv is
-`~/.hermes/hermes-agent/venv` (`/usr/local/lib/hermes-agent/venv` if the installer ran
-as root on Linux), and Hermes keeps its own `uv` in `~/.hermes/bin`:
+**B. From PyPI** — for a Hermes whose Python environment you manage yourself (your own
+virtualenv, a Nix build): install `hermes-yandex-disk` into that environment, then enable the
+plugin. Hermes finds it through the `hermes_agent.plugins` entry point.
+
+```bash
+hermes plugins enable yandex-disk
+```
+
+**A standard Hermes install has no place for this.** Since 24 September 2026 the official
+installer runs Hermes from environments its package manager builds and replaces, and Hermes
+does not support adding packages to them by hand: use A or C.
+
+Hermes 0.21.5 and earlier, set up by their own installer, run from
+`~/.hermes/hermes-agent/venv`, and Hermes keeps its own `uv` in `~/.hermes/bin`. There this
+works:
 
 ```bash
 ~/.hermes/bin/uv pip install --python ~/.hermes/hermes-agent/venv/bin/python hermes-yandex-disk
 hermes plugins enable yandex-disk
 ```
 
-A bare `pip install hermes-yandex-disk` does not get there: the installer builds that
-virtualenv with `uv` and without `pip`, so the `pip` on your `PATH` belongs to some other
-Python, and Hermes never sees the plugin. If you installed Hermes another way, install the
-package into whichever environment the `hermes` command runs from. Hermes finds it through
-the `hermes_agent.plugins` entry point. Nothing asks for the token on this path — add it to
-`~/.hermes/.env` as in the [Quick start](#quick-start).
+Switch such an install to A before you run `hermes update`: the update moves Hermes onto the
+new environments, and a package installed this way does not come along. A bare
+`pip install hermes-yandex-disk` never reached Hermes at all — the `pip` on your `PATH`
+belongs to some other Python.
+
+Nothing asks for the token on this path — add it to `~/.hermes/.env` as in the
+[Quick start](#quick-start).
 
 **C. Drop-in** — download `hermes-yandex-disk-plugin-<version>.zip` from a
 [release](https://github.com/akinfold/hermes-yandex-disk/releases), then unzip it into
@@ -220,13 +232,31 @@ unzip hermes-yandex-disk-plugin-<version>.zip -d ~/.hermes/plugins/
 hermes plugins enable yandex-disk
 ```
 
-You should end up with `~/.hermes/plugins/yandex-disk/plugin.yaml`. As with B, add the
-token to `~/.hermes/.env` yourself. The archive brings no dependencies; the one the plugin
-needs, `httpx`, is a Hermes dependency already.
+You should end up with `~/.hermes/plugins/yandex-disk/plugin.yaml`. Nothing asks for the
+token here either: add it to `~/.hermes/.env` yourself. The archive brings no dependencies;
+the one the plugin needs, `httpx`, is a Hermes dependency already.
 
-All three are checked before every release by installing the build into a real Hermes —
-the latest release and `main` — exactly as written here; see
-[Checking the install paths](#checking-the-install-paths).
+### Upgrading
+
+Upgrade the way you installed. From Git (A): the same command with `--force`, which replaces
+the installed copy and keeps your token:
+
+```bash
+hermes plugins install akinfold/hermes-yandex-disk/hermes_yandex_disk --enable --force
+```
+
+Drop-in (C): unzip the new release's archive over the old one:
+
+```bash
+unzip -o hermes-yandex-disk-plugin-<version>.zip -d ~/.hermes/plugins/
+```
+
+From PyPI (B): install the new version into the same environment.
+
+A and C, and their upgrades, are checked before every release by installing the build into
+a real Hermes — the latest release and `main`, each set up by its official installer —
+exactly as written here; B is checked on the latest release, where the command above
+applies. See [Checking the install paths](#checking-the-install-paths).
 
 ## Why REST and not WebDAV
 
@@ -270,22 +300,24 @@ workflow manually; it reads the secrets `YANDEX_DISK_OAUTH_TOKEN` and, optionall
 `YANDEX_DISK_E2E_LOGIN` from the `yandex-disk-e2e` environment. It runs the plugin inside a real
 Hermes, set up the way the Hermes installer sets it up, so the real credential resolver is
 exercised: the latest Hermes release by default, and its `hermes` input switches to Hermes `main` or
-to no Hermes at all. With Hermes, the run fails outright if the plugin cannot import it, rather than
-testing the plugin's stand-ins instead.
+to no Hermes at all. With Hermes, the tests run in Hermes' own Python, with this checkout on its
+path rather than installed into Hermes' environment, and the run fails outright if the plugin
+cannot import Hermes, rather than testing the plugin's stand-ins instead.
 
 ## Checking the install paths
 
 The `install`-marked tests in `tests/install/` install the built plugin into a real Hermes,
-set up the way the official installer sets it up, by each route in [Installing](#installing)
-— running the README's own commands — and then ask Hermes what it loaded: the plugin must be
-listed as enabled, load without error, and give the agent its tools. They also check that
-installing from the repository root still looks the way this README describes. A fast unit
-test keeps the commands in the tests and in this README identical.
+set up by its official installer, by each route in [Installing](#installing) — running the
+README's own commands, upgrades included — and then ask Hermes what it loaded: the plugin
+must be listed as enabled, load without error, and give the agent its tools. They also check
+that installing from the repository root still looks the way this README describes. A fast
+unit test keeps the commands in the tests and in this README identical.
 
 The **Install check** workflow runs them against the latest Hermes release and against
 Hermes `main` on every pull request, and on every release tag before anything is published:
-the GitHub Release and the PyPI upload both wait for it. To run them locally, see the
-docstring of `tests/install/test_install.py`.
+the GitHub Release and the PyPI upload both wait for it. They install into a real
+`~/.hermes`, so run them yourself only in a container or VM — see the docstring of
+`tests/install/test_install.py`.
 
 ## Related Hermes plugins
 
