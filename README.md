@@ -239,17 +239,23 @@ the one the plugin needs, `httpx`, is a Hermes dependency already.
 
 ### Upgrading
 
-Upgrade the way you installed. From Git (A): the same command with `--force`, which replaces
-the installed copy and keeps your token:
+Upgrade the way you installed. From Git (A): Hermes 0.21.5 and later install the new version
+from the source they recorded:
+
+```bash
+hermes plugins update yandex-disk
+```
+
+Older Hermes cannot update an install from a plugin directory, and no Hermes updates one
+pinned with `--ref`: run the install command again with `--force`, which replaces the
+installed copy and keeps your token.
 
 ```bash
 hermes plugins install akinfold/hermes-yandex-disk/hermes_yandex_disk --enable --force
 ```
 
-(Before Hermes 0.21.5, `hermes plugins update` cannot do it: Hermes keeps only the plugin's
-directory, not the Git metadata of the repository it came from, and those versions update
-only from that metadata. And unlike a first install, `--force` does not stop to ask when
-Hermes' security scan reports a caution.)
+Both scan the new version again, but unlike a first install neither stops to ask when
+Hermes' security scan reports a caution.
 
 Drop-in (C): unzip the new release's archive over the old one:
 
