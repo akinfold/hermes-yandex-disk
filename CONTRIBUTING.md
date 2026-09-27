@@ -91,7 +91,10 @@ They hit a real account and really create, publish and delete files, so use a th
 Yandex account. Put the token in `~/.yandex-disk-oauth` and run `pytest -m e2e -v`; the suite
 skips itself when the file and the environment variable are both absent. Each test works
 inside a `hermes-e2e-<id>` folder that teardown removes permanently even when an assertion
-fails — if you add a test, keep that property.
+fails — if you add a test, keep that property. Two things reach outside the folder: the bin
+tests pass their files through the account-wide bin and remove their own entries, and — only
+when the token is allowed to search — one test puts a marker file in the disk root and
+permanently deletes it again. After a failed or interrupted run, check the bin and the root.
 
 ## The install check
 
