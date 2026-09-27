@@ -81,7 +81,9 @@ fix is extracting an argument-marshalling or dispatch helper, which does not cha
 The bandit gate exists because CodeFactor runs the same checks and files an issue for a
 finding — but only once the code is already on `main`. Fix the finding rather than adding a
 `# nosec`; reach for `# nosec B<id>` (not `# noqa`, which is ruff's) only when the flagged
-construct is genuinely unavoidable, and say why on the same line.
+construct is genuinely unavoidable. Say why in a comment on the line above, and leave
+`# nosec B<id>` alone at the end of the flagged line: bandit reads every word after it as
+another test name and warns about each one.
 
 ## Running the live E2E tests
 
