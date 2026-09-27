@@ -113,7 +113,8 @@ In the PR, say what changed and why, and tick the checklist in the template.
 
 1. Bump the version in **three** files, which must agree: `pyproject.toml`,
    `hermes_yandex_disk/__init__.py`, `hermes_yandex_disk/plugin.yaml`. A unit test enforces it.
-2. `git tag vX.Y.Z && git push origin vX.Y.Z`.
+2. Create an annotated tag and push it:
+   `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z`.
 3. `release-publish.yml` builds, runs the install check on exactly those artifacts, and only
    then creates the GitHub Release and — if the repository variable `PUBLISH_TO_PYPI` is
    `true` — publishes to PyPI through Trusted Publishing. If the install check fails, nothing
