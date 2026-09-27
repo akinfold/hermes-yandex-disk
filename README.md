@@ -220,9 +220,12 @@ hermes plugins enable yandex-disk
 ```
 
 Switch such an install to A before you run `hermes update`: the update moves Hermes onto the
-new environments, and a package installed this way does not come along. A bare
-`pip install hermes-yandex-disk` never reached Hermes at all — the `pip` on your `PATH`
-belongs to some other Python.
+new environments, and a package installed this way does not come along. The loss is silent:
+`yandex-disk` stays enabled in the configuration, but its tools are gone, and neither the
+update nor `hermes doctor` mentions it. If you have already updated, install it with A now:
+that brings the tools back and keeps your token in `~/.hermes/.env`. A bare
+`pip install hermes-yandex-disk` never reached Hermes at all — the `pip` on your `PATH` belongs
+to some other Python.
 
 Nothing asks for the token on this path — add it to `~/.hermes/.env` as in the
 [Quick start](#quick-start).

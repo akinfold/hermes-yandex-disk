@@ -81,7 +81,9 @@ fix is extracting an argument-marshalling or dispatch helper, which does not cha
 The bandit gate exists because CodeFactor runs the same checks and files an issue for a
 finding — but only once the code is already on `main`. Fix the finding rather than adding a
 `# nosec`; reach for `# nosec B<id>` (not `# noqa`, which is ruff's) only when the flagged
-construct is genuinely unavoidable, and say why on the same line.
+construct is genuinely unavoidable. Say why in a comment on the line above, and leave
+`# nosec B<id>` alone at the end of the flagged line: bandit reads every word after it as
+another test name and warns about each one.
 
 ## Running the live E2E tests
 
@@ -89,7 +91,10 @@ They hit a real account and really create, publish and delete files, so use a th
 Yandex account. Put the token in `~/.yandex-disk-oauth` and run `pytest -m e2e -v`; the suite
 skips itself when the file and the environment variable are both absent. Each test works
 inside a `hermes-e2e-<id>` folder that teardown removes permanently even when an assertion
-fails — if you add a test, keep that property.
+fails — if you add a test, keep that property. Two things reach outside the folder: the bin
+tests pass their files through the account-wide bin and remove their own entries, and — only
+when the token is allowed to search — one test puts a marker file in the disk root and
+permanently deletes it again. After a failed or interrupted run, check the bin and the root.
 
 ## The install check
 
@@ -111,7 +116,8 @@ In the PR, say what changed and why, and tick the checklist in the template.
 
 1. Bump the version in **three** files, which must agree: `pyproject.toml`,
    `hermes_yandex_disk/__init__.py`, `hermes_yandex_disk/plugin.yaml`. A unit test enforces it.
-2. `git tag vX.Y.Z && git push origin vX.Y.Z`.
+2. Create an annotated tag and push it:
+   `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z`.
 3. `release-publish.yml` builds, runs the install check on exactly those artifacts, and only
    then creates the GitHub Release and — if the repository variable `PUBLISH_TO_PYPI` is
    `true` — publishes to PyPI through Trusted Publishing. If the install check fails, nothing
