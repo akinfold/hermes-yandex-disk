@@ -33,8 +33,9 @@ browser.
 - 🔑 **One OAuth token, nothing proxied** — the plugin talks to `cloud-api.yandex.net`
   directly; no third-party service sees your files or your token.
 
-Checked before every release against the latest Hermes release and Hermes `main`, each
-installed by its official installer; Python 3.11–3.14.
+Checked on every pull request, weekly, and before every release against Hermes v2026.9.24,
+the latest Hermes release and Hermes `main`, each installed by its official installer;
+Python 3.11–3.14.
 
 ## Quick start
 
@@ -210,14 +211,16 @@ Hermes from environments its package manager builds and replaces, and Hermes doe
 adding packages to them by hand: use A or C.
 
 A Hermes in the older layout — one that runs from `~/.hermes/hermes-agent/venv` and keeps its
-own `uv` in `~/.hermes/bin`, with no `~/.hermes/installs`, which is what Hermes 0.21.5 and
-anything installed before that date and not updated since look like — takes the package like
-this:
+own `uv` in `~/.hermes/bin`, with no `~/.hermes/installs` — takes the package like this:
 
 ```bash
 ~/.hermes/bin/uv pip install --python ~/.hermes/hermes-agent/venv/bin/python hermes-yandex-disk
 hermes plugins enable yandex-disk
 ```
+
+That layout is what the installer of Hermes v2026.9.24, the last release to build it, sets
+up, and what anything installed before that date and not updated since looks like. Tell it by
+those directories, not by the version number Hermes reports.
 
 Switch such an install to A before you run `hermes update`: the update moves Hermes onto the
 new environments, and a package installed this way does not come along. The loss is silent:
@@ -245,23 +248,34 @@ the one the plugin needs, `httpx`, is a Hermes dependency already.
 
 ### Upgrading
 
-Upgrade the way you installed. From Git (A): Hermes 0.21.5 and later install the new version
-from the source they recorded:
+Upgrade the way you installed. From Git (A): Hermes v2026.9.24 (0.21.5) and later install the
+new version from the source they recorded:
 
 ```bash
 hermes plugins update yandex-disk
 ```
 
-Older Hermes cannot update an install from a plugin directory, and no Hermes updates one
-pinned with `--ref`: run the install command again with `--force`, which replaces the
-installed copy and keeps your token.
+Older Hermes cannot update an install from a plugin directory: run the install command again
+with `--force`, which installs what the default branch holds now, replaces the installed copy,
+and keeps your token.
 
 ```bash
 hermes plugins install akinfold/hermes-yandex-disk/hermes_yandex_disk --enable --force
 ```
 
-Both scan the new version again, but unlike a first install neither stops to ask when
-Hermes' security scan reports a caution.
+An install pinned to a commit with `--ref` stays on that commit through both:
+`hermes plugins update` refuses to move it, and `--force` without a new `--ref` installs the
+same commit again. `hermes plugins list` shows the pin in its Source column, as `git pinned@`
+and the first eight characters of the commit. To move it, run the install command with
+`--force` and the new commit, its full 40-character SHA, in place of `<commit>`:
+
+```bash
+hermes plugins install akinfold/hermes-yandex-disk/hermes_yandex_disk --enable --force --ref <commit>
+```
+
+Each of these scans the new version again. Unlike a first install, none of them stops to ask
+when Hermes' security scan reports a caution: for an install from a plugin directory, as here,
+they accept it and go on. A dangerous verdict still stops them.
 
 Drop-in (C): unzip the new release's archive over the old one:
 
@@ -275,10 +289,11 @@ From PyPI (B): upgrade the package in the same environment — in the older layo
 ~/.hermes/bin/uv pip install --upgrade --python ~/.hermes/hermes-agent/venv/bin/python hermes-yandex-disk
 ```
 
-A and C, and their upgrades, are checked before every release by installing the build into
-a real Hermes — the latest release and `main`, each set up by its official installer —
-exactly as written here; the B install is checked on the latest release while it still has
-the older layout. See [Checking the install paths](#checking-the-install-paths).
+A and C and their upgrades, moving a pinned install included, are checked before every
+release by installing the build into a real Hermes exactly as written here: Hermes v2026.9.24,
+the latest release, and `main`, each set up by its own official installer. The B install is
+checked against Hermes v2026.9.24, the last release whose installer builds the older layout.
+See [Checking the install paths](#checking-the-install-paths).
 
 ## Why REST and not WebDAV
 
@@ -335,10 +350,11 @@ must be listed as enabled, load without error, and give the agent its tools. The
 that installing from the repository root still looks the way this README describes. A fast
 unit test keeps the commands in the tests and in this README identical.
 
-The **Install check** workflow runs them against the latest Hermes release and against
-Hermes `main` on every pull request, and on every release tag before anything is published:
-the GitHub Release and the PyPI upload both wait for it. They install into a real
-`~/.hermes`, so run them yourself only in a container or VM — see the docstring of
+The **Install check** workflow runs them against Hermes v2026.9.24, the last release in the
+older layout, against the latest Hermes release, and against Hermes `main` — on every pull
+request, once a week, and on every release tag before anything is published: the GitHub
+Release and the PyPI upload both wait for it. They install into a real `~/.hermes`, so run
+them yourself only in a container or VM — see the docstring of
 `tests/install/test_install.py`.
 
 ## Related Hermes plugins
