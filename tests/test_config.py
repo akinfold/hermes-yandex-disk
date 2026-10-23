@@ -7,12 +7,14 @@ import pytest
 from hermes_yandex_disk import config
 
 
-def test_credentials_come_from_either_variable(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_token_comes_from_the_declared_variable_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv(config.TOKEN_ENV)
     assert not config.credentials_present()
-    monkeypatch.setenv(config.TOKEN_ENV_ALIAS, "alias-token")
-    assert config.credentials_present()
-    assert config.token() == "alias-token"
+    # The alias accepted before 0.6.0 is no longer read.
+    monkeypatch.setenv("YANDEX_DISK_API_KEY", "alias-token")
+    assert not config.credentials_present()
     monkeypatch.setenv(config.TOKEN_ENV, "primary-token")
     assert config.token() == "primary-token"
 

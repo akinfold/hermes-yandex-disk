@@ -61,7 +61,6 @@ def test_the_pattern_really_catches_the_shape_it_guards_against() -> None:
 def test_the_environment_variable_names_are_exact() -> None:
     """The names are composed from a prefix (see config), so pin what they spell."""
     assert config.TOKEN_ENV == "YANDEX_DISK_OAUTH_TOKEN"
-    assert config.TOKEN_ENV_ALIAS == "YANDEX_DISK_API_KEY"
     assert config.ROOT_ENV == "YANDEX_DISK_ROOT"
     assert config.ACTIONS_ENV == "YANDEX_DISK_ACTIONS"
     assert config.BASE_URL_ENV == "YANDEX_DISK_BASE_URL"

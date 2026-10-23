@@ -24,7 +24,6 @@ DOWNLOAD_HOST = "https://downloader.example.net/file"
 
 _ENV_VARS = (
     config.TOKEN_ENV,
-    config.TOKEN_ENV_ALIAS,
     config.ROOT_ENV,
     config.ACTIONS_ENV,
     config.BASE_URL_ENV,

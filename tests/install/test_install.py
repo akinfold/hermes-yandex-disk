@@ -70,16 +70,13 @@ PLUGIN = "yandex-disk"
 TOOLSET = "yandex_disk"
 PROJECT = "hermes-yandex-disk"
 REQUIRED_ENV = ("YANDEX_DISK_OAUTH_TOKEN",)
-#: Every variable the plugin reads its token from: the manifest's, and the alias
-#: config.py also accepts.
-TOKEN_ENV = (*REQUIRED_ENV, "YANDEX_DISK_API_KEY")
 
 #: What an install gives the agent before YANDEX_DISK_ACTIONS says otherwise:
-#: every tool in the manifest. ``yadisk_search`` is not among them: the plugin
-#: offers it only after a live probe shows the token may search, and a token
-#: that is a placeholder may not. That probe is the one request these tests
-#: make to Yandex — loading the plugin sends it, with the placeholder token, and
-#: a refusal and an unreachable API both leave search hidden.
+#: every tool in the manifest but ``yadisk_search``. The plugin offers that one
+#: only after a live probe shows the token may search, and a token that is a
+#: placeholder may not. That probe is the one request these tests make to
+#: Yandex — loading the plugin sends it, with the placeholder token, and a
+#: refusal and an unreachable API both leave search hidden.
 DEFAULT_TOOLS = {
     "yadisk_disk_info",
     "yadisk_list",
@@ -204,7 +201,7 @@ class Home:
 
     def credentials(self) -> dict[str, str]:
         """This plugin's variables in ``~/.hermes/.env``; the installer writes its own there too."""
-        return {key: value for key, value in self.dotenv().items() if key in TOKEN_ENV}
+        return {key: value for key, value in self.dotenv().items() if key in REQUIRED_ENV}
 
 
 class _Snapshot:
