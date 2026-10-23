@@ -19,7 +19,7 @@
 - [ ] `bandit -q -r hermes_yandex_disk tests --skip B101 --severity-level medium` reports nothing
 - [ ] `client.py` and `paths.py` still import nothing from Hermes
 - [ ] Every handler still returns JSON on every path, including failure
-- [ ] Every path still goes through `paths.resolve`, so `YANDEX_DISK_ROOT` still holds
+- [ ] Every Disk path still goes through `paths.resolve`, so `YANDEX_DISK_ROOT` still holds, and every local path through `local_files.readable` or `local_files.writable`
 - [ ] A new tool is listed in `config.ACTIONS`, an `ACTION_GROUPS` group, `_TOOLS`, `plugin.yaml` and the README table
 - [ ] README updated if the user-visible behaviour changed
 - [ ] Live e2e run (`pytest -m e2e`) if the change touches the API calls — say what you ran
