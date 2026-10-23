@@ -86,9 +86,10 @@ them without guessing.
 
 > **Changed in 0.6.0.** The token is read from `YANDEX_DISK_OAUTH_TOKEN` only: the alias
 > `YANDEX_DISK_API_KEY` is no longer accepted, so if your token is stored under that name,
-> rename it. The plugin now needs Hermes v2026.9.24 (0.21.5) or later, and an older Hermes
-> skips it at load. And `yadisk_upload` and `yadisk_download` refuse the local files Hermes'
-> own file tools refuse — see [Local files](#local-files).
+> rename it. The plugin now declares that it needs Hermes v2026.9.24 (0.21.5) or later: an
+> older Hermes that checks the floor (v2026.9.11 on) skips it at load, and earlier ones are
+> not supported. And `yadisk_upload` and `yadisk_download` refuse the local files Hermes' own
+> file tools refuse — see [Local files](#local-files).
 
 > **Changed in 0.5.0.** `yadisk_upload` from a `url` used to ignore `overwrite`. Yandex'
 > fetch-from-internet endpoint has no such parameter and the plugin did not stand in for it,
@@ -149,11 +150,10 @@ A relative path is taken from the directory the Hermes process runs in, and `~` 
 Before touching a local path, both tools ask Hermes' own file rules — the ones its file tools
 follow — and refuse what those refuse. An upload is refused for Hermes' credential stores
 (`.env`, `auth.json` and the like under `~/.hermes`) and for any `.env` file anywhere. A
-download is refused onto credential files (`~/.hermes/.env`, `~/.ssh/authorized_keys`,
-`~/.netrc`, anything under `~/.ssh` or `~/.aws`, and so on), into Hermes' session and token
-directories, onto `~/.ssh/config` (Hermes' file tools write that only with a person's
-approval, which a tool cannot ask for), and outside `HERMES_WRITE_SAFE_ROOT` when you have set
-it. Hermes does not document these rules for plugins, so a Hermes release could move them; the
+download is refused onto credential files (Hermes' `.env`, SSH and cloud-provider keys and
+logins, and so on), into Hermes' session and token directories, onto your SSH client
+configuration (Hermes' file tools write that only with a person's approval, which a tool
+cannot ask for), and outside `HERMES_WRITE_SAFE_ROOT` when you have set it. Hermes does not document these rules for plugins, so a Hermes release could move them; the
 plugin then falls back to refusing `.env` files in both directions, as it does outside Hermes.
 
 They keep the agent from being talked into sending your Hermes keys to the Disk or replacing
@@ -293,7 +293,7 @@ hermes plugins update yandex-disk
 Running the install command again with `--force` does the same by another route: it installs
 what the default branch holds now, replaces the installed copy, and keeps your token. A Hermes
 older than v2026.9.24 (0.21.5) cannot update an install from a plugin directory, and from 0.6.0
-on it does not load the plugin either: update Hermes first.
+on the plugin does not support it either: update Hermes first.
 
 ```bash
 hermes plugins install akinfold/hermes-yandex-disk/hermes_yandex_disk --enable --force

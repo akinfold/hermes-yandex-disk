@@ -2,8 +2,8 @@
 
 ``yadisk_upload`` reads a local file and sends it to Yandex, and ``yadisk_download``
 writes one. Hermes' own file tools will not read its credential stores or any
-``.env`` file, and will not write credential files, ``~/.ssh/config`` without
-approval, or outside ``HERMES_WRITE_SAFE_ROOT``. Both tools put the same
+``.env`` file, and will not write credential files, the SSH client configuration
+without approval, or outside ``HERMES_WRITE_SAFE_ROOT``. Both tools put the same
 questions to Hermes before they touch a local path, so neither is a way around
 those rules.
 
