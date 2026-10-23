@@ -207,6 +207,24 @@ def test_download_requires_a_destination(disk: FakeDisk) -> None:
     assert "save_to is required" in payload(tools.handle_download({"path": "/a.txt"}))["error"]
 
 
+def test_download_refuses_a_destination_hermes_would_not_write(disk: FakeDisk, tmp_path) -> None:
+    disk.add_file("disk:/a.txt", b"KEY=from-the-disk")
+    target = tmp_path / "project" / ".env"
+    result = payload(tools.handle_download({"path": "/a.txt", "save_to": str(target)}))
+    assert "Write denied" in result["error"]
+    assert not target.parent.exists()
+    assert disk.requests == []
+
+
+def test_download_checks_the_name_a_directory_destination_resolves_to(
+    disk: FakeDisk, tmp_path
+) -> None:
+    disk.add_file("disk:/.env", b"KEY=from-the-disk")
+    result = payload(tools.handle_download({"path": "/.env", "save_to": str(tmp_path)}))
+    assert "Write denied" in result["error"]
+    assert not (tmp_path / ".env").exists()
+
+
 # -- write ----------------------------------------------------------------
 
 
@@ -342,6 +360,15 @@ def test_upload_from_a_url_keeps_the_original_when_the_fetch_fails(disk: FakeDis
 def test_upload_needs_exactly_one_source(disk: FakeDisk, args: dict) -> None:
     """Neither source, or both — the handler refuses before touching anything."""
     assert "exactly one" in payload(tools.handle_upload({"path": "/x", **args}))["error"]
+
+
+def test_upload_refuses_a_local_file_hermes_would_not_read(disk: FakeDisk, tmp_path) -> None:
+    secret = tmp_path / ".env"
+    secret.write_text("KEY=value\n", encoding="utf-8")
+    result = payload(tools.handle_upload({"path": "/new/leak.txt", "local_path": str(secret)}))
+    assert "Read denied" in result["error"]
+    # Refused before the folder for it was created, let alone the file sent.
+    assert disk.requests == []
 
 
 def test_upload_reports_a_missing_local_file(disk: FakeDisk, tmp_path) -> None:

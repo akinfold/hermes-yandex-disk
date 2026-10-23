@@ -9,7 +9,8 @@
 # Python with this checkout on PYTHONPATH and pytest after Hermes' own
 # packages: nothing is installed into Hermes' environment, which Hermes builds
 # itself and does not support changing by hand.
-# `none` runs the plugin on its own, on the stand-ins in _compat.py.
+# `none` runs the plugin on its own, on the stand-ins in _compat.py and
+# local_files.py.
 name: E2E (live)
 
 on:
@@ -52,6 +53,7 @@ jobs:
           python -m pip install --quiet --target "$RUNNER_TEMP/e2e-site" pytest
           # Hermes' own code, or a failed run: never a quiet fallback to the stand-ins.
           PYTHONPATH="$GITHUB_WORKSPACE" "$HERMES_PYTHON" -c "from hermes_yandex_disk._compat import HERMES_AVAILABLE; assert HERMES_AVAILABLE, 'the plugin cannot import Hermes'"
+          PYTHONPATH="$GITHUB_WORKSPACE" "$HERMES_PYTHON" -c "from hermes_yandex_disk.local_files import HERMES_GUARDS; assert HERMES_GUARDS, 'the plugin cannot reach Hermes file rules'"
           echo "PYTHONPATH=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
           echo "E2E_PYTHON=$HERMES_PYTHON" >> "$GITHUB_ENV"
           echo "E2E_SITE=$RUNNER_TEMP/e2e-site" >> "$GITHUB_ENV"
