@@ -7,6 +7,8 @@ called, and does not spend context.
 
 from __future__ import annotations
 
+from urllib.parse import urlsplit
+
 from ._compat import get_provider_env
 from .client import API_BASE, DEFAULT_MAX_RETRIES, DEFAULT_TIMEOUT, YandexDiskClient
 from .paths import normalize_root
@@ -76,8 +78,15 @@ def token() -> str:
 
 
 def credentials_present() -> bool:
-    """Cheap availability check — no network. Used as the tools' ``check_fn``."""
-    return bool(token())
+    """Cheap availability check — no network. Used as the tools' ``check_fn``.
+
+    A lookup Hermes refuses (an unscoped read under a multiplexed gateway) counts
+    as no credentials rather than an exception in Hermes' tool listing.
+    """
+    try:
+        return bool(token())
+    except Exception:
+        return False
 
 
 def root() -> str:
@@ -142,6 +151,31 @@ def allowed_actions() -> frozenset[str]:
 SEARCH_PROBE_TIMEOUT = 2.0
 
 
+def base_url() -> str:
+    """The API base: Yandex's unless ``YANDEX_DISK_BASE_URL`` names an HTTPS one.
+
+    The token goes wherever this points, so anything but a plain ``https://`` URL
+    is refused rather than used.
+    """
+    raw = get_provider_env(BASE_URL_ENV)
+    if not raw:
+        return API_BASE
+    parts = urlsplit(raw)
+    if (
+        parts.scheme != "https"
+        or not parts.hostname
+        or parts.username is not None
+        or parts.password is not None
+        or parts.query
+        or parts.fragment
+    ):
+        raise ConfigError(
+            f"{BASE_URL_ENV} must be an https:// URL with no user name, password, query "
+            "or fragment; unset it to use Yandex Disk's own API."
+        )
+    return raw
+
+
 def build_client(
     *, request_timeout: float | None = None, max_retries: int = DEFAULT_MAX_RETRIES
 ) -> YandexDiskClient:
@@ -155,7 +189,7 @@ def build_client(
         )
     return YandexDiskClient(
         value,
-        base_url=get_provider_env(BASE_URL_ENV) or API_BASE,
+        base_url=base_url(),
         timeout=timeout() if request_timeout is None else request_timeout,
         max_retries=max_retries,
     )
