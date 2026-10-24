@@ -84,6 +84,12 @@ Restart Hermes and ask it: **"How much space is left on my Yandex Disk?"**
 Every read result carries the `path` the write tools take as input, so the agent can chain
 them without guessing.
 
+> **Changed in 0.6.1.** `yadisk_download` no longer writes into Hermes' own directory, a
+> project's `.hermes` directory, the files agents read as instructions or system locations,
+> and `yadisk_upload` no longer sends files from Hermes' own directory or from the
+> directories in your home that hold keys and logins — see [Local files](#local-files).
+> `YANDEX_DISK_BASE_URL` must now be an `https://` URL.
+
 > **Changed in 0.6.0.** The token is read from `YANDEX_DISK_OAUTH_TOKEN` only: the alias
 > `YANDEX_DISK_API_KEY` is no longer accepted, so if your token is stored under that name,
 > rename it. The plugin now declares that it needs Hermes v2026.9.24 (0.21.5) or later: an
@@ -108,7 +114,7 @@ them without guessing.
 | `YANDEX_DISK_MAX_READ_BYTES` | no | `1048576` | Largest file `yadisk_read_file` will pull into context |
 | `YANDEX_DISK_MAX_DOWNLOAD_BYTES` | no | `268435456` | Largest file `yadisk_download` will write locally |
 | `YANDEX_DISK_TIMEOUT` | no | `30` | Per-request timeout, in seconds |
-| `YANDEX_DISK_BASE_URL` | no | `https://cloud-api.yandex.net/v1/disk` | API base, for testing against a stub; the token goes to whatever it names |
+| `YANDEX_DISK_BASE_URL` | no | `https://cloud-api.yandex.net/v1/disk` | API base, for testing against a stub. It must be an `https://` URL; the token goes to whatever host it names |
 
 Put them in `~/.hermes/.env` — Hermes reads it in gateway and subprocess runs too — or export
 them in the environment.
@@ -147,20 +153,43 @@ Two tools reach past the Disk to the machine Hermes runs on: `yadisk_upload` wit
 A relative path is taken from the directory the Hermes process runs in, and `~` is expanded.
 `YANDEX_DISK_ROOT` does not apply to these paths.
 
-Before touching a local path, both tools ask Hermes' own file rules — the ones its file tools
-follow — and refuse what those refuse. An upload is refused for Hermes' credential stores
-(`.env`, `auth.json` and the like under `~/.hermes`) and for any `.env` file anywhere. A
+Two sets of rules decide which local paths they may touch, and either one can refuse.
+
+The first set is Hermes' own, the rules its file tools share. An upload is refused for Hermes'
+credential stores (`.env`, `auth.json` and the like) and for any `.env` file anywhere. A
 download is refused onto credential files (Hermes' `.env`, SSH and cloud-provider keys and
 logins, and so on), into Hermes' session and token directories, onto your SSH client
 configuration (Hermes' file tools write that only with a person's approval, which a tool
-cannot ask for), and outside `HERMES_WRITE_SAFE_ROOT` when you have set it. Hermes does not document these rules for plugins, so a Hermes release could move them; the
-plugin then falls back to refusing `.env` files in both directions, as it does outside Hermes.
+cannot ask for), and outside `HERMES_WRITE_SAFE_ROOT` when you have set it. Hermes does not
+document these rules for plugins, so a Hermes release could move them; the plugin then falls
+back to refusing `.env` files in both directions, as it does outside Hermes.
 
-They keep the agent from being talked into sending your Hermes keys to the Disk or replacing
-them from it. They are not a sandbox: any other local file the Hermes process can read can be
-uploaded, SSH keys included, and anything else the agent runs as your user, a terminal for
-one, reaches the same files. To keep the agent off local files altogether, leave `download`
-and `upload` out of `YANDEX_DISK_ACTIONS`:
+The second set is the plugin's own, because Hermes' file tools check more than those shared
+rules, and because sending a file off the machine is not the same as reading it into the
+conversation:
+
+- **Nothing is uploaded** from Hermes' own directory (`~/.hermes`, or `HERMES_HOME` and the
+  root above its profiles), where the configuration, sessions and memories live, or from the
+  directories in your home that hold keys and logins: SSH, AWS, GnuPG, Kubernetes, Docker,
+  Azure, and the GitHub and Google Cloud command-line tools.
+- **Nothing is downloaded** into Hermes' own directory, where its configuration, profiles,
+  plugins and skills live; into a project's `.hermes` directory; over a file agents read as
+  instructions for later sessions (`AGENTS.md`, `CLAUDE.md`, `SOUL.md`, `.cursorrules`, in any
+  directory and any letter case), which Hermes' file tools only write with a person's
+  approval; or into system locations such as `/etc`.
+- The `home` and `workspace` folders in Hermes' own directory, where the official Docker
+  image puts the agent's home and work, are the agent's: both tools may use them, under the
+  other rules.
+
+Symlinks are followed before either set is applied, so a link elsewhere does not get a file
+past them.
+
+Together they keep the agent from being talked into sending your keys or Hermes' state to the
+Disk, or into replacing Hermes' configuration and instructions from it. They are not a sandbox:
+any other local file the Hermes process can read can be uploaded, and anything else the agent
+runs as your user, a terminal for one, reaches the same files. To keep the agent off local
+files altogether, leave `download` and `upload` out of `YANDEX_DISK_ACTIONS`. The `write`
+group includes `upload`, so name its other tools one by one:
 
 ```dotenv
 YANDEX_DISK_ACTIONS=read,mkdir,write_file,copy,move,trash_restore
