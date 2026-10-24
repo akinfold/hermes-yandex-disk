@@ -38,6 +38,9 @@ def test_build_client_honours_the_base_url_override(monkeypatch: pytest.MonkeyPa
     [
         "http://cloud-api.yandex.net/v1/disk",
         "https://user:secret@example.test/v1/disk",
+        "https://user@example.test/v1/disk",
+        "https://:secret@example.test/v1/disk",
+        "https://example.test/v1/disk#fragment",
         "https://example.test/v1/disk?x=1",
         "https:///v1/disk",
         "cloud-api.yandex.net/v1/disk",

@@ -164,8 +164,8 @@ def base_url() -> str:
     if (
         parts.scheme != "https"
         or not parts.hostname
+        # Any user info at all, a bare password included, sets username.
         or parts.username is not None
-        or parts.password is not None
         or parts.query
         or parts.fragment
     ):
