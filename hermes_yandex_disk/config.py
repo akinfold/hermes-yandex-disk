@@ -24,7 +24,6 @@ from .paths import normalize_root
 _ENV_PREFIX = "YANDEX_DISK_"
 
 TOKEN_ENV = _ENV_PREFIX + "OAUTH_TOKEN"
-TOKEN_ENV_ALIAS = _ENV_PREFIX + "API_KEY"
 ROOT_ENV = _ENV_PREFIX + "ROOT"
 ACTIONS_ENV = _ENV_PREFIX + "ACTIONS"
 BASE_URL_ENV = _ENV_PREFIX + "BASE_URL"
@@ -73,7 +72,7 @@ class ConfigError(RuntimeError):
 
 
 def token() -> str:
-    return get_provider_env(TOKEN_ENV) or get_provider_env(TOKEN_ENV_ALIAS)
+    return get_provider_env(TOKEN_ENV)
 
 
 def credentials_present() -> bool:

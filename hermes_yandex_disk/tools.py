@@ -5,9 +5,11 @@ the client lifetime, translates the failure modes into ``{"error": ...}`` and
 catches whatever is left, so a bad path or a rate-limited API degrades into a
 message the model can act on instead of an exception in the host.
 
-Where ``YANDEX_DISK_ROOT`` is set every path — in and out — is folded through
-:mod:`.paths`, so the sandbox holds for arguments the model invents as well as
-for identifiers it copies back from an earlier result.
+Where ``YANDEX_DISK_ROOT`` is set every Disk path — in and out — is folded
+through :mod:`.paths`, so the sandbox holds for arguments the model invents as
+well as for identifiers it copies back from an earlier result. Local paths, the
+files on this machine that upload reads and download writes, go through
+:mod:`.local_files` instead.
 """
 
 from __future__ import annotations
@@ -19,7 +21,7 @@ import uuid
 from collections.abc import Callable
 from typing import Any
 
-from . import config
+from . import config, local_files
 from .client import YandexDiskClient, YandexDiskError
 from .paths import (
     DISK_SCHEME,
@@ -262,10 +264,10 @@ def _destination(save_to: str, path: str, overwrite: bool) -> str:
     target = os.path.expanduser(save_to)
     if os.path.isdir(target):
         target = os.path.join(target, split_scheme(path)[1].rsplit("/", 1)[-1])
+    target = local_files.writable(target)
     if os.path.exists(target) and not overwrite:
         raise FileExistsError(f"{target} already exists; pass overwrite=true to replace it.")
-    parent = os.path.dirname(os.path.abspath(target))
-    os.makedirs(parent, exist_ok=True)
+    os.makedirs(os.path.dirname(target), exist_ok=True)
     return target
 
 
@@ -330,8 +332,8 @@ def handle_write_file(client: YandexDiskClient, args: dict[str, Any], root: str)
     return {"path": display(path, root), "bytes": len(data), "status": "written"}
 
 
-def _upload_local(client: YandexDiskClient, path: str, local: str, overwrite: bool) -> int:
-    source = os.path.expanduser(local)
+def _upload_local(client: YandexDiskClient, path: str, source: str, overwrite: bool) -> int:
+    """Send the local file *source*, already cleared by :func:`.local_files.readable`."""
     size = os.path.getsize(source)
     with open(source, "rb") as handle:
         client.upload(path, handle, overwrite=overwrite)
@@ -367,6 +369,8 @@ def handle_upload(client: YandexDiskClient, args: dict[str, Any], root: str) -> 
     url = _text(args, "url")
     if bool(local) == bool(url):
         return {"error": "Give exactly one of local_path or url."}
+    # Refuse a local file before anything is created on the Disk for it.
+    source = local_files.readable(local) if local else ""
     _ensure_dir(client, _parent_of(path))
     if url:
         replacing = client.exists(path)
@@ -378,7 +382,7 @@ def handle_upload(client: YandexDiskClient, args: dict[str, Any], root: str) -> 
             }
         status = _upload_from_url(client, path, url, replacing=replacing)
         return {"path": display(path, root), "source": url, "status": status}
-    size = _upload_local(client, path, local, _flag(args, "overwrite"))
+    size = _upload_local(client, path, source, _flag(args, "overwrite"))
     return {"path": display(path, root), "source": local, "bytes": size, "status": "uploaded"}
 
 

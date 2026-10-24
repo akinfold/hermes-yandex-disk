@@ -73,20 +73,26 @@ def test_search_needs_both_the_action_and_the_capability(
     assert "yadisk_search" not in _register(monkeypatch, search=True).names
 
 
-def test_the_manifest_lists_every_tool_except_search(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def _manifest_tools() -> list[str]:
     manifest = (PACKAGE_DIR / "plugin.yaml").read_text(encoding="utf-8")
-    declared = [
+    return [
         line.split("- ", 1)[1].strip()
         for line in manifest.splitlines()
         if line.startswith("  - yadisk_")
     ]
-    # Search is deliberately unmanifested: it is discovered only when the token
-    # supports it, so with no capability the registered set equals the manifest.
-    assert declared == _register(monkeypatch, search=False).names
-    assert "yadisk_search" not in declared
-    assert "yadisk_search" in _register(monkeypatch, search=True).names
+
+
+def test_the_manifest_lists_every_tool_register_may_offer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The catalog holds a plugin to registering nothing it does not declare, so
+    # the capability-gated search is declared too: with the capability the
+    # registered set is exactly the manifest, without it the manifest less search.
+    declared = _manifest_tools()
+    assert declared == _register(monkeypatch, search=True).names
+    assert [name for name in declared if name != "yadisk_search"] == _register(
+        monkeypatch, search=False
+    ).names
 
 
 def test_read_only_deployments_never_see_a_mutating_tool(
@@ -181,7 +187,6 @@ def test_no_handler_raises_when_the_token_is_missing(
     monkeypatch: pytest.MonkeyPatch, handler: Any
 ) -> None:
     monkeypatch.delenv(config.TOKEN_ENV, raising=False)
-    monkeypatch.delenv(config.TOKEN_ENV_ALIAS, raising=False)
     result = payload(handler({}))
     assert config.TOKEN_ENV in result["error"]
 

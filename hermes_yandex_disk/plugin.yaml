@@ -1,12 +1,19 @@
 # Hermes Agent plugin manifest.
 name: yandex-disk
 version: "0.5.2"
-description: "Browse, read, write, share, delete and restore files on Yandex Disk over the REST API. Requires YANDEX_DISK_OAUTH_TOKEN; YANDEX_DISK_ROOT confines every path to one folder and YANDEX_DISK_ACTIONS restricts which tools are exposed."
+description: "Browse, search, read, write, share, delete and restore files on Yandex Disk over the REST API. Requires YANDEX_DISK_OAUTH_TOKEN; YANDEX_DISK_ROOT confines Disk paths to one folder and YANDEX_DISK_ACTIONS restricts which tools are exposed."
 author: akinfold
 kind: standalone
+# The oldest Hermes the install check runs against. Hermes v2026.9.11 and later
+# skip the plugin on a version below it.
+requires_hermes: ">=0.21.5"
+# Every tool register() may offer. yadisk_search is offered only when a probe
+# at load shows the token may use Yandex' search endpoint, so a token that may
+# not gets one tool fewer than this list.
 provides_tools:
   - yadisk_disk_info
   - yadisk_list
+  - yadisk_search
   - yadisk_read_file
   - yadisk_trash_list
   - yadisk_download

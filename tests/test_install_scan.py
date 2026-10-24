@@ -61,10 +61,30 @@ def test_the_pattern_really_catches_the_shape_it_guards_against() -> None:
 def test_the_environment_variable_names_are_exact() -> None:
     """The names are composed from a prefix (see config), so pin what they spell."""
     assert config.TOKEN_ENV == "YANDEX_DISK_OAUTH_TOKEN"
-    assert config.TOKEN_ENV_ALIAS == "YANDEX_DISK_API_KEY"
     assert config.ROOT_ENV == "YANDEX_DISK_ROOT"
     assert config.ACTIONS_ENV == "YANDEX_DISK_ACTIONS"
     assert config.BASE_URL_ENV == "YANDEX_DISK_BASE_URL"
     assert config.TIMEOUT_ENV == "YANDEX_DISK_TIMEOUT"
     assert config.MAX_READ_BYTES_ENV == "YANDEX_DISK_MAX_READ_BYTES"
     assert config.MAX_DOWNLOAD_BYTES_ENV == "YANDEX_DISK_MAX_DOWNLOAD_BYTES"
+
+
+#: Hermes' ``ssh_backdoor`` rule (``tools/skills_guard.py``) is this bare word, and
+#: Hermes v2026.9.24 rates it critical in documentation as well as in code: a README
+#: that merely names the file made an install from the repository root dangerous.
+#: Assembled here for the same reason as the shapes above.
+SSH_BACKDOOR = "authorized" + "_keys"
+
+
+def test_nothing_outside_the_tests_names_the_ssh_backdoor_file() -> None:
+    files = [*sorted(PACKAGE.parent.glob("*.md")), *sorted(PACKAGE.rglob("*.py"))]
+    offenders = [
+        f"{path.relative_to(PACKAGE.parent)}:{number}"
+        for path in [*files, PACKAGE / "plugin.yaml"]
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if SSH_BACKDOOR in line.lower()
+    ]
+    assert not offenders, (
+        "Hermes v2026.9.24 rates these lines a critical ssh_backdoor finding, which blocks "
+        "the install outright:\n" + "\n".join(offenders)
+    )

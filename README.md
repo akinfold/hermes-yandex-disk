@@ -17,8 +17,9 @@ browser.
 > "What's eating my Disk space? Move the old videos into /Archive."
 > "Restore that file I deleted this morning."
 
-- 🔒 **`YANDEX_DISK_ROOT` sandboxes the agent to one folder** — every path is checked against
-  it, including ones the model invents and ones it copies back from an earlier result.
+- 🔒 **`YANDEX_DISK_ROOT` sandboxes the agent to one folder of the Disk** — every Disk path is
+  checked against it, including ones the model invents and ones it copies back from an earlier
+  result. Files on your own machine follow Hermes' rules instead: see [Local files](#local-files).
 - 🛟 **Nothing is overwritten or destroyed by accident** — writes, copies, moves and uploads
   refuse an existing destination unless you pass `overwrite`, deletes go to the bin by default,
   and the bin can be restored from. Replacing is never done by clearing the way first: an
@@ -33,9 +34,9 @@ browser.
 - 🔑 **One OAuth token, nothing proxied** — the plugin talks to `cloud-api.yandex.net`
   directly; no third-party service sees your files or your token.
 
-Checked on every pull request, weekly, and before every release against Hermes v2026.9.24,
-the latest Hermes release and Hermes `main`, each installed by its official installer;
-Python 3.11–3.14.
+Needs Hermes v2026.9.24 (0.21.5) or later. Checked on every pull request, weekly, and before
+every release against Hermes v2026.9.24, the latest Hermes release and Hermes `main`, each
+installed by its official installer; Python 3.11–3.14.
 
 ## Quick start
 
@@ -66,12 +67,13 @@ Restart Hermes and ask it: **"How much space is left on my Yandex Disk?"**
 |---|---|
 | `yadisk_disk_info` | Quota, used and bin space, account login |
 | `yadisk_list` | List a folder, or show one file's metadata |
+| `yadisk_search` | Find files by name or contents — only where the token may search ([why](#choosing-what-the-agent-may-do)) |
 | `yadisk_read_file` | Read a text file's contents into the conversation |
 | `yadisk_trash_list` | What is in the bin, and where each item came from |
-| `yadisk_download` | Save a file from the Disk to the local machine |
+| `yadisk_download` | Save a file from the Disk to the local machine ([Local files](#local-files)) |
 | `yadisk_mkdir` | Create a folder, parents included |
 | `yadisk_write_file` | Create or replace a text file from the agent's own output |
-| `yadisk_upload` | Upload a local file, or have Yandex fetch a public URL |
+| `yadisk_upload` | Upload a local file ([Local files](#local-files)), or have Yandex fetch a public URL |
 | `yadisk_copy` | Server-side copy — no bytes pass through your machine |
 | `yadisk_move` | Move or rename |
 | `yadisk_trash_restore` | Put something back where it was deleted from |
@@ -81,6 +83,13 @@ Restart Hermes and ask it: **"How much space is left on my Yandex Disk?"**
 
 Every read result carries the `path` the write tools take as input, so the agent can chain
 them without guessing.
+
+> **Changed in 0.6.0.** The token is read from `YANDEX_DISK_OAUTH_TOKEN` only: the alias
+> `YANDEX_DISK_API_KEY` is no longer accepted, so if your token is stored under that name,
+> rename it. The plugin now declares that it needs Hermes v2026.9.24 (0.21.5) or later: an
+> older Hermes that checks the floor (v2026.9.11 on) skips it at load, and earlier ones are
+> not supported. And `yadisk_upload` and `yadisk_download` refuse the local files Hermes' own
+> file tools refuse — see [Local files](#local-files).
 
 > **Changed in 0.5.0.** `yadisk_upload` from a `url` used to ignore `overwrite`. Yandex'
 > fetch-from-internet endpoint has no such parameter and the plugin did not stand in for it,
@@ -93,13 +102,13 @@ them without guessing.
 
 | Variable | Required | Default | Meaning |
 |---|---|---|---|
-| `YANDEX_DISK_OAUTH_TOKEN` | yes | — | OAuth token for the account (`YANDEX_DISK_API_KEY` is also accepted) |
+| `YANDEX_DISK_OAUTH_TOKEN` | yes | — | OAuth token for the account |
 | `YANDEX_DISK_ACTIONS` | no | all tools | Which tools get registered — see below |
-| `YANDEX_DISK_ROOT` | no | whole disk | Confine every tool to this folder |
+| `YANDEX_DISK_ROOT` | no | whole disk | Confine every Disk path to this folder (local paths are unaffected) |
 | `YANDEX_DISK_MAX_READ_BYTES` | no | `1048576` | Largest file `yadisk_read_file` will pull into context |
 | `YANDEX_DISK_MAX_DOWNLOAD_BYTES` | no | `268435456` | Largest file `yadisk_download` will write locally |
 | `YANDEX_DISK_TIMEOUT` | no | `30` | Per-request timeout, in seconds |
-| `YANDEX_DISK_BASE_URL` | no | `https://cloud-api.yandex.net/v1/disk` | API base, for testing against a stub |
+| `YANDEX_DISK_BASE_URL` | no | `https://cloud-api.yandex.net/v1/disk` | API base, for testing against a stub; the token goes to whatever it names |
 
 Put them in `~/.hermes/.env` — Hermes reads it in gateway and subprocess runs too — or export
 them in the environment.
@@ -130,6 +139,32 @@ comes back as `/notes.md` — and can be handed straight to the next tool. The a
 whose root *is* that folder. The bin is filtered the same way: items deleted from outside the
 sandbox are neither listed nor restorable, and emptying the whole bin is refused, because the
 bin is shared with the rest of the account.
+
+### Local files
+
+Two tools reach past the Disk to the machine Hermes runs on: `yadisk_upload` with a
+`local_path` reads a file there and sends it to Yandex, and `yadisk_download` writes one there.
+A relative path is taken from the directory the Hermes process runs in, and `~` is expanded.
+`YANDEX_DISK_ROOT` does not apply to these paths.
+
+Before touching a local path, both tools ask Hermes' own file rules — the ones its file tools
+follow — and refuse what those refuse. An upload is refused for Hermes' credential stores
+(`.env`, `auth.json` and the like under `~/.hermes`) and for any `.env` file anywhere. A
+download is refused onto credential files (Hermes' `.env`, SSH and cloud-provider keys and
+logins, and so on), into Hermes' session and token directories, onto your SSH client
+configuration (Hermes' file tools write that only with a person's approval, which a tool
+cannot ask for), and outside `HERMES_WRITE_SAFE_ROOT` when you have set it. Hermes does not document these rules for plugins, so a Hermes release could move them; the
+plugin then falls back to refusing `.env` files in both directions, as it does outside Hermes.
+
+They keep the agent from being talked into sending your Hermes keys to the Disk or replacing
+them from it. They are not a sandbox: any other local file the Hermes process can read can be
+uploaded, SSH keys included, and anything else the agent runs as your user, a terminal for
+one, reaches the same files. To keep the agent off local files altogether, leave `download`
+and `upload` out of `YANDEX_DISK_ACTIONS`:
+
+```dotenv
+YANDEX_DISK_ACTIONS=read,mkdir,write_file,copy,move,trash_restore
+```
 
 ### Choosing what the agent may do
 
@@ -248,16 +283,17 @@ the one the plugin needs, `httpx`, is a Hermes dependency already.
 
 ### Upgrading
 
-Upgrade the way you installed. From Git (A): Hermes v2026.9.24 (0.21.5) and later install the
-new version from the source they recorded:
+Upgrade the way you installed. From Git (A), Hermes installs the new version from the source it
+recorded:
 
 ```bash
 hermes plugins update yandex-disk
 ```
 
-Older Hermes cannot update an install from a plugin directory: run the install command again
-with `--force`, which installs what the default branch holds now, replaces the installed copy,
-and keeps your token.
+Running the install command again with `--force` does the same by another route: it installs
+what the default branch holds now, replaces the installed copy, and keeps your token. A Hermes
+older than v2026.9.24 (0.21.5) cannot update an install from a plugin directory, and from 0.6.0
+on the plugin does not support it either: update Hermes first.
 
 ```bash
 hermes plugins install akinfold/hermes-yandex-disk/hermes_yandex_disk --enable --force

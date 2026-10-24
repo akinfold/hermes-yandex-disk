@@ -86,7 +86,6 @@ def test_config_search_supported_is_false_without_a_token(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv(config.TOKEN_ENV, raising=False)
-    monkeypatch.delenv(config.TOKEN_ENV_ALIAS, raising=False)
     assert config.search_supported() is False
 
 

@@ -133,6 +133,15 @@ def test_upload_and_download_round_trip(workspace: str, tmp_path) -> None:
     assert target.read_bytes() == source.read_bytes()
 
 
+def test_a_local_file_hermes_will_not_read_is_never_uploaded(workspace: str, tmp_path) -> None:
+    """Inside Hermes the refusal is Hermes' own file rule; on its own, the plugin's stand-in."""
+    secret = tmp_path / ".env"
+    secret.write_text("E2E_PLACEHOLDER=not-a-secret\n", encoding="utf-8")
+    refusal = failing(tools.handle_upload, path=f"{workspace}/leak.txt", local_path=str(secret))
+    assert "denied" in refusal, refusal
+    assert call(tools.handle_list, path=workspace)["items"] == []
+
+
 def test_binary_files_are_refused_by_read_file(workspace: str, tmp_path) -> None:
     source = tmp_path / "payload.bin"
     source.write_bytes(b"\x89PNG\r\n\x1a\n\xff\xfe\x00")

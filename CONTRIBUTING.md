@@ -23,6 +23,7 @@ hermes_yandex_disk/
   tools.py      # handlers: JSON in, JSON string out, never raising
   config.py     # env-driven credentials, limits and the action allow-list
   capabilities.py  # one-time probe of what the configured token may actually do
+  local_files.py   # local paths upload reads and download writes, put to Hermes' file rules
   _compat.py    # Hermes' get_provider_env when present, env-only shim otherwise
   __init__.py   # register(ctx) — the entry point; RELATIVE imports only
   plugin.yaml   # the manifest Hermes reads
@@ -43,12 +44,16 @@ These are the ones that actually break things:
 3. **Relative imports in `__init__.py`** (`from . import tools`). Hermes loads a directory
    plugin as `hermes_plugins.<slug>`, and an absolute import breaks that.
 4. **Secrets come from `get_provider_env`**, never from `os.environ` directly, so they also
-   resolve from `~/.hermes/.env`. Never log a token value.
+   resolve from `~/.hermes/.env`, and only under the names `plugin.yaml` declares in
+   `requires_env`. Never log a token value.
 5. **No union types in a tool schema.** `{"type": ["string", "object"]}` is valid JSON Schema
    but strict function-calling validators reject it. Advertise one shape; be lenient in the
    handler.
-6. **Every path goes through `paths.resolve`.** That is the single place the sandbox is
-   enforced; a handler that builds a path itself has a hole in it.
+6. **Every Disk path goes through `paths.resolve`, every local path through
+   `local_files.readable` or `local_files.writable`.** The first is the single place the
+   `YANDEX_DISK_ROOT` sandbox is enforced, the second where Hermes' own file rules are; a
+   handler that builds a path itself has a hole in it. Check a local path before the first
+   request to Yandex, so a refusal leaves nothing behind on the Disk.
 7. **Destructive steps go last, and default to recoverable.** Deletes go to the bin unless the
    caller asks otherwise, a move is a single server-side `POST /resources/move` rather
    than a copy followed by a delete, and every `overwrite` argument defaults to false.
@@ -59,11 +64,12 @@ These are the ones that actually break things:
    application, not per token scope, so whether a given token can call them is only knowable
    by trying. `capabilities.py` probes that once at load; `register()` then offers such a tool
    only when the probe succeeds, so a token that cannot use the endpoint never sees the tool.
-   A capability-gated tool is intentionally left out of `plugin.yaml` and the README tool
-   table — it is discovered at runtime, not advertised. The `YANDEX_DISK_ACTIONS` tables do
-   name it, conditionally: a reader deciding what a group grants has to know that `read` can
-   also carry a whole-disk search. Gate on the capability, never on a hardcoded
-   application identity.
+   Such a tool is still declared in `plugin.yaml`, because the Hermes plugin catalog holds a
+   plugin to registering nothing it has not declared, and listed in the README tables with
+   its condition: a reader deciding what a group grants has to know that `read` can also carry
+   a whole-disk search. `hermes plugins validate` without a token that may search warns that
+   the tool was declared but not registered; that warning is expected. Gate on the
+   capability, never on a hardcoded application identity.
 
 ## Checks before opening a PR
 

@@ -172,7 +172,10 @@ DOWNLOAD = _schema(
         "path": _PATH,
         "save_to": {
             "type": "string",
-            "description": "Local destination path. A directory here keeps the original file name.",
+            "description": (
+                "Local destination path. A directory here keeps the original file name. "
+                "Paths Hermes' own file tools may not write, such as credential files, are refused."
+            ),
         },
         "overwrite": {
             "type": "boolean",
@@ -213,7 +216,13 @@ UPLOAD = _schema(
     "Give exactly one of local_path or url.",
     {
         "path": _PATH,
-        "local_path": {"type": "string", "description": "Path to a file on the local machine."},
+        "local_path": {
+            "type": "string",
+            "description": (
+                "Path to a file on the local machine. Hermes' credential stores and .env files "
+                "are refused."
+            ),
+        },
         "url": {"type": "string", "description": "Public http(s) URL for Yandex to fetch."},
         "overwrite": {
             "type": "boolean",
