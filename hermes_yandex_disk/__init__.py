@@ -15,7 +15,7 @@ from typing import Any
 
 from . import config, schemas, tools
 
-__version__ = "0.6.1"
+__version__ = "0.6.2"
 
 __all__ = ["__version__", "register"]
 
