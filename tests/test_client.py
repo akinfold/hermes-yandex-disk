@@ -124,6 +124,29 @@ def test_transport_failures_are_retried_then_reported(monkeypatch: pytest.Monkey
     assert len(attempts) == 3
 
 
+def test_a_transfer_cut_off_mid_body_is_resent_whole(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """A dropped connection after part of a file went out: the retry starts at byte 0."""
+    monkeypatch.setattr("time.sleep", lambda _s: None)
+    source = tmp_path / "big.bin"
+    source.write_bytes(os.urandom(4096))
+    received: list[bytes] = []
+
+    def flaky(request: httpx.Request) -> httpx.Response:
+        received.append(request.read())
+        if len(received) == 1:
+            raise httpx.WriteError("connection reset by peer")
+        return httpx.Response(201)
+
+    client = YandexDiskClient(
+        "t", base_url=API, client=httpx.Client(transport=httpx.MockTransport(flaky)), max_retries=1
+    )
+    with source.open("rb") as handle:
+        assert client._send("PUT", "https://uploader.test/x", content=handle).status_code == 201
+    assert received[1] == source.read_bytes()
+
+
 def test_deleting_a_folder_waits_for_the_deferred_operation(
     client: YandexDiskClient, disk: FakeDisk
 ) -> None:

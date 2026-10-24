@@ -149,7 +149,20 @@ def test_nothing_is_uploaded_from_hermes_own_directory(homes: dict[str, Path]) -
         local_files.readable(str(homes["hermes"] / "config.yaml"))
 
 
-@pytest.mark.parametrize("credentials", [(".ssh", "id_ed25519"), (".aws", "credentials")])
+@pytest.mark.parametrize(
+    "credentials",
+    [
+        (".ssh", "id_ed25519"),
+        (".aws", "credentials"),
+        (".gnupg", "private-keys-v1.d", "key"),
+        (".kube", "config"),
+        (".docker", "config.json"),
+        (".azure", "msal_token_cache.json"),
+        (".config", "gh", "hosts.yml"),
+        (".config", "gcloud", "credentials.db"),
+    ],
+    ids=lambda parts: "/".join(parts[:-1]),
+)
 def test_nothing_is_uploaded_from_a_credential_directory(
     homes: dict[str, Path], credentials: tuple[str, str]
 ) -> None:
@@ -182,7 +195,14 @@ def test_nothing_is_written_into_a_project_hermes_directory(tmp_path: Path) -> N
 
 
 @pytest.mark.parametrize(
-    "name", [AGENT_INSTRUCTIONS, AGENT_INSTRUCTIONS.upper(), "Soul" + ".md", ".cursorrules"]
+    "name",
+    [
+        AGENT_INSTRUCTIONS,
+        AGENT_INSTRUCTIONS.upper(),
+        "Claude" + ".md",
+        "Soul" + ".md",
+        ".cursorrules",
+    ],
 )
 def test_files_agents_read_as_instructions_are_not_written(tmp_path: Path, name: str) -> None:
     with pytest.raises(local_files.LocalPathError, match="instructions"):
@@ -191,7 +211,19 @@ def test_files_agents_read_as_instructions_are_not_written(tmp_path: Path, name:
     assert local_files.readable(str(tmp_path / "repo" / name))
 
 
-@pytest.mark.parametrize("target", ["/etc/hosts", "/boot/x", "/usr/lib/systemd/x.service"])
+@pytest.mark.parametrize(
+    "target",
+    [
+        "/etc/hosts",
+        "/boot/x",
+        "/usr/lib/systemd/x.service",
+        "/private/etc/hosts",
+        "/private/var/db/x",
+        "/private/var/root/x",
+        "/var/run/docker.sock",
+        "/run/docker.sock",
+    ],
+)
 def test_system_locations_are_not_written(target: str) -> None:
     with pytest.raises(local_files.LocalPathError, match="system location"):
         local_files.writable(target)
@@ -251,3 +283,19 @@ def test_a_hermes_directory_named_dot_hermes_is_not_a_project_one(
 def test_key_directories_in_the_docker_agent_home_are_not_uploaded(homes: dict[str, Path]) -> None:
     with pytest.raises(local_files.LocalPathError, match="keys or logins"):
         local_files.readable(str(homes["hermes"] / "home" / ".ssh" / "id_ed25519"))
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/etc/x",
+        "/boot/x",
+        "/usr/lib/systemd/x",
+        "/private/etc/x",
+        "/private/var/db/x",
+        "/private/var/root/x",
+    ],
+)
+def test_each_system_prefix_holds_on_its_own(path: str) -> None:
+    """On macOS /etc resolves to /private/etc, so each prefix is tested as the only form."""
+    assert local_files._own_write_refusal(path, (path,))
