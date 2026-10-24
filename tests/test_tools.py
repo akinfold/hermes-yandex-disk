@@ -362,6 +362,24 @@ def test_upload_needs_exactly_one_source(disk: FakeDisk, args: dict) -> None:
     assert "exactly one" in payload(tools.handle_upload({"path": "/x", **args}))["error"]
 
 
+def test_download_never_writes_into_hermes_own_directory(
+    disk: FakeDisk, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A Disk file over Hermes' config could, for one, switch its approvals off."""
+    hermes = tmp_path / "hermes-home"
+    monkeypatch.setenv("HERMES_HOME", str(hermes))
+    disk.add_file("disk:/config.yaml", b"approvals: {mode: off}")
+    for save_to in (hermes, hermes / "config.yaml", hermes / "profiles" / "work"):
+        result = payload(
+            tools.handle_download(
+                {"path": "/config.yaml", "save_to": str(save_to), "overwrite": True}
+            )
+        )
+        assert "Hermes' own directory" in result["error"]
+    assert not hermes.exists()
+    assert disk.requests == []
+
+
 def test_upload_refuses_a_local_file_hermes_would_not_read(disk: FakeDisk, tmp_path) -> None:
     secret = tmp_path / ".env"
     secret.write_text("KEY=value\n", encoding="utf-8")
@@ -589,3 +607,21 @@ def test_handlers_accept_the_registry_kwargs(disk: FakeDisk) -> None:
 
 def test_handlers_tolerate_no_arguments_at_all(disk: FakeDisk) -> None:
     assert payload(tools.handle_disk_info())["login"] == "tester"
+
+
+def test_download_refuses_before_it_looks_at_the_local_path(
+    disk: FakeDisk, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Not even a directory probe for a refused destination."""
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes-home"))
+
+    def probe(_path: object) -> bool:
+        raise AssertionError("the destination was probed before it was checked")
+
+    monkeypatch.setattr(tools.os.path, "isdir", probe)
+    disk.add_file("disk:/a.txt", b"x")
+    save_to = str(tmp_path / "hermes-home" / "a.txt")
+    assert (
+        "Hermes' own directory"
+        in payload(tools.handle_download({"path": "/a.txt", "save_to": save_to}))["error"]
+    )

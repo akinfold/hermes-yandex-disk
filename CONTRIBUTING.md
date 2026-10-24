@@ -23,7 +23,7 @@ hermes_yandex_disk/
   tools.py      # handlers: JSON in, JSON string out, never raising
   config.py     # env-driven credentials, limits and the action allow-list
   capabilities.py  # one-time probe of what the configured token may actually do
-  local_files.py   # local paths upload reads and download writes, put to Hermes' file rules
+  local_files.py   # local paths upload reads and download writes: Hermes' file rules, then ours
   _compat.py    # Hermes' get_provider_env when present, env-only shim otherwise
   __init__.py   # register(ctx) — the entry point; RELATIVE imports only
   plugin.yaml   # the manifest Hermes reads

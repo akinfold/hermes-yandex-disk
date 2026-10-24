@@ -191,6 +191,26 @@ def test_no_handler_raises_when_the_token_is_missing(
     assert config.TOKEN_ENV in result["error"]
 
 
+class UnscopedSecretError(RuntimeError):
+    """What Hermes raises for every secret under a multiplexed gateway with no profile."""
+
+
+@pytest.mark.parametrize(
+    "handler",
+    [handler for _action, _schema, handler, _desc, _emoji in hermes_yandex_disk._TOOLS],
+    ids=[schema["name"] for _action, schema, _handler, _desc, _emoji in hermes_yandex_disk._TOOLS],
+)
+def test_no_handler_raises_when_hermes_refuses_the_settings(
+    monkeypatch: pytest.MonkeyPatch, handler: Any
+) -> None:
+    def refuse(name: str) -> str:
+        raise UnscopedSecretError(f"{name} needs a profile")
+
+    monkeypatch.setattr(config, "get_provider_env", refuse)
+    assert "UnscopedSecretError" in payload(handler({}))["error"]
+    assert config.credentials_present() is False
+
+
 # -- version sync ---------------------------------------------------------
 
 

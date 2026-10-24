@@ -33,6 +33,24 @@ def test_build_client_honours_the_base_url_override(monkeypatch: pytest.MonkeyPa
         assert client.base_url == "https://example.test/v1/disk"
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        "http://cloud-api.yandex.net/v1/disk",
+        "https://user:secret@example.test/v1/disk",
+        "https://example.test/v1/disk?x=1",
+        "https:///v1/disk",
+        "cloud-api.yandex.net/v1/disk",
+    ],
+)
+def test_build_client_refuses_a_base_url_the_token_should_not_go_to(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv(config.BASE_URL_ENV, value)
+    with pytest.raises(config.ConfigError, match="https://"):
+        config.build_client()
+
+
 def test_default_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
     with config.build_client() as client:
         assert client.base_url == "https://cloud-api.yandex.net/v1/disk"

@@ -174,7 +174,9 @@ DOWNLOAD = _schema(
             "type": "string",
             "description": (
                 "Local destination path. A directory here keeps the original file name. "
-                "Paths Hermes' own file tools may not write, such as credential files, are refused."
+                "Refused: credential files, Hermes' own and .hermes directories, files agents "
+                "read as instructions, system locations, and other paths Hermes' file tools "
+                "may not write."
             ),
         },
         "overwrite": {
@@ -219,8 +221,8 @@ UPLOAD = _schema(
         "local_path": {
             "type": "string",
             "description": (
-                "Path to a file on the local machine. Hermes' credential stores and .env files "
-                "are refused."
+                "Path to a file on the local machine. Refused: .env files, Hermes' own directory "
+                "and the home directories that hold keys or logins."
             ),
         },
         "url": {"type": "string", "description": "Public http(s) URL for Yandex to fetch."},

@@ -70,6 +70,10 @@ def tool_handler(fn: Callable[[YandexDiskClient, dict[str, Any], str], dict[str,
             client = config.build_client()
         except config.ConfigError as exc:
             return _fail(str(exc))
+        except Exception as exc:
+            # Reading the settings can fail inside Hermes too: under a multiplexed
+            # gateway with no profile bound, Hermes refuses every secret lookup.
+            return _fail(f"Could not read the Yandex Disk settings: {type(exc).__name__}: {exc}")
         try:
             with client:
                 return _dumps(fn(client, args or {}, config.root()))
@@ -261,7 +265,9 @@ def handle_trash_list(client: YandexDiskClient, args: dict[str, Any], root: str)
 
 
 def _destination(save_to: str, path: str, overwrite: bool) -> str:
-    target = os.path.expanduser(save_to)
+    # Checked before the directory probe below as well as after it, so a refused
+    # path is never even looked at.
+    target = local_files.writable(save_to)
     if os.path.isdir(target):
         target = os.path.join(target, split_scheme(path)[1].rsplit("/", 1)[-1])
     target = local_files.writable(target)
