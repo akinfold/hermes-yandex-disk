@@ -116,7 +116,13 @@ class YandexDiskClient:
     def _send(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
         """Issue one request, retrying transient statuses and transport errors."""
         last_error: Exception | None = None
+        # A file being uploaded is read by the attempt that sends it, so every
+        # retry starts it again from where the first attempt did.
+        body = kwargs.get("content")
+        start = body.tell() if hasattr(body, "seek") else None
         for attempt in range(self._max_retries + 1):
+            if start is not None:
+                body.seek(start)
             try:
                 response = self._client.request(method, url, **kwargs)
             except httpx.HTTPError as exc:

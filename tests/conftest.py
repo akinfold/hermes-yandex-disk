@@ -76,6 +76,9 @@ class FakeDisk:
         #: ``fail_next`` this survives the requests a call makes before the one under
         #: test.
         self.fail_routes: dict[tuple[str, str], httpx.Response] = {}
+        #: The next upload of bytes is answered with this, after the bytes were read:
+        #: a server that took the body and then failed, so a retry must send it again.
+        self.fail_upload: httpx.Response | None = None
         self._deferred = 0
         #: When False, the search endpoint 403s — a token whose app lacks the grant.
         self.search_allowed = True
@@ -134,6 +137,10 @@ class FakeDisk:
         url = urlparse(str(request.url))
         query = {k: v[0] for k, v in parse_qs(url.query).items()}
         if str(request.url).startswith(UPLOAD_HOST):
+            if self.fail_upload is not None:
+                request.read()
+                response, self.fail_upload = self.fail_upload, None
+                return response
             return self._put_bytes(request)
         if str(request.url).startswith(DOWNLOAD_HOST):
             return self._get_bytes(query)

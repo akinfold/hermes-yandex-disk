@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from hermes_yandex_disk import config, tools
+from hermes_yandex_disk.client import YandexDiskClient
 
 from .conftest import FakeDisk, payload
 
@@ -285,6 +286,24 @@ def test_upload_from_a_local_file(disk: FakeDisk, tmp_path) -> None:
     result = payload(tools.handle_upload({"path": "/up.bin", "local_path": str(source)}))
     assert result["bytes"] == 3
     assert disk.files["disk:/up.bin"] == b"\x00\x01\x02"
+
+
+def test_a_retried_local_upload_sends_the_whole_file_again(
+    disk: FakeDisk, wired: YandexDiskClient, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The first attempt reads the file; the retry has to start it from the top."""
+    monkeypatch.setattr(wired, "_max_retries", 1)
+    monkeypatch.setattr("time.sleep", lambda _s: None)
+    source = tmp_path / "local.bin"
+    source.write_bytes(bytes(range(256)) * 4)
+    disk.fail_upload = httpx.Response(503)
+    result = payload(tools.handle_upload({"path": "/up.bin", "local_path": str(source)}))
+    assert result["bytes"] == 1024, result
+    assert disk.files["disk:/up.bin"] == source.read_bytes()
+    assert [r.method for r in disk.requests if r.url.host == "uploader.example.net"] == [
+        "PUT",
+        "PUT",
+    ]
 
 
 def test_upload_from_a_url_is_fetched_by_yandex(disk: FakeDisk) -> None:
