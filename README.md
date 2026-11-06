@@ -1,4 +1,6 @@
-# hermes-yandex-disk
+![Yandex Disk for Hermes Agent](https://raw.githubusercontent.com/akinfold/hermes-yandex-disk/main/docs/banner.png)
+
+# Yandex Disk for Hermes Agent
 
 [![PyPI version](https://img.shields.io/pypi/v/hermes-yandex-disk.svg)](https://pypi.org/project/hermes-yandex-disk/)
 [![CI](https://github.com/akinfold/hermes-yandex-disk/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/akinfold/hermes-yandex-disk/actions/workflows/ci.yml)
@@ -8,7 +10,7 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-![Yandex Disk for Hermes Agent](https://raw.githubusercontent.com/akinfold/hermes-yandex-disk/main/docs/banner.png)
+[Quick start](#quick-start) · [Features](#the-tools) · [Configuration](#configuration) · [Installation](#installing) · [Security](#security-and-disclosures)
 
 **Your Yandex Disk, handed to the agent.** It can walk the folders, read a file into the
 conversation, write the answer back, and give you a share link — without you opening a
