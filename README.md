@@ -8,6 +8,8 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
+![Yandex Disk for Hermes Agent](https://raw.githubusercontent.com/akinfold/hermes-yandex-disk/main/docs/banner.png)
+
 **Your Yandex Disk, handed to the agent.** It can walk the folders, read a file into the
 conversation, write the answer back, and give you a share link — without you opening a
 browser.
@@ -37,6 +39,35 @@ browser.
 Needs Hermes v2026.9.24 (0.21.5) or later. Checked on every pull request, weekly, and before
 every release against Hermes v2026.9.24, the latest Hermes release and Hermes `main`, each
 installed by its official installer; Python 3.11–3.14.
+
+## Security and disclosures
+
+This is an independent community plugin, not affiliated with Yandex.
+
+- **Network and credentials.** API requests go to `cloud-api.yandex.net`, or
+  the HTTPS endpoint in `YANDEX_DISK_BASE_URL`, with the
+  `YANDEX_DISK_OAUTH_TOKEN` supplied through Hermes. File transfers use the
+  upload and download URLs returned by the API, without sending that token.
+  Unless `YANDEX_DISK_ACTIONS` excludes search, loading the plugin makes one
+  search request to check permission before registering `yadisk_search`.
+- **Account changes.** All permitted tools are exposed by default, including
+  permanent deletion, emptying the bin and creating public share links.
+  Start with `YANDEX_DISK_ACTIONS=read` for read-only access. An upload from a
+  URL asks Yandex to fetch that URL.
+- **Local files.** `yadisk_upload` reads and sends a local file without
+  redaction; `yadisk_download` writes one. Both apply Hermes' shared file-safety
+  rules and the plugin's additional restrictions: upload blocks `.env` files,
+  credential stores, Hermes' own directory and directories holding keys or
+  logins; download blocks credential files, Hermes directories, `.hermes`
+  directories, agent instruction files such as `AGENTS.md`, system locations
+  and paths outside `HERMES_WRITE_SAFE_ROOT`. Other local files remain within
+  reach. `YANDEX_DISK_ROOT` limits Disk paths only. See [Local files](#local-files)
+  before enabling transfers.
+- **Untrusted content.** File names and contents supplied by other people are
+  returned to the agent as tool output.
+- **Other activity.** The plugin has no telemetry, shell access or background
+  process. It obtains credentials through Hermes and does not maintain a
+  separate credential store.
 
 ## Quick start
 
