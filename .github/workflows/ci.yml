@@ -51,6 +51,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install -e '.[dev]'
+      - name: Check marketplace README matches the source
+        run: cmp README.md hermes_yandex_disk/README.md
       - run: ruff check .
       - run: ruff format --check .
       - name: Complexity gate (radon)

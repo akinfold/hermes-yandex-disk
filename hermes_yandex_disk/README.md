@@ -1,0 +1,473 @@
+![Yandex Disk for Hermes Agent](https://raw.githubusercontent.com/akinfold/hermes-yandex-disk/main/docs/banner.png)
+
+# Yandex Disk for Hermes Agent
+
+[![PyPI version](https://img.shields.io/pypi/v/hermes-yandex-disk.svg)](https://pypi.org/project/hermes-yandex-disk/)
+[![CI](https://github.com/akinfold/hermes-yandex-disk/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/akinfold/hermes-yandex-disk/actions/workflows/ci.yml)
+[![E2E (live)](https://github.com/akinfold/hermes-yandex-disk/actions/workflows/e2e.yml/badge.svg)](https://github.com/akinfold/hermes-yandex-disk/actions/workflows/e2e.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/akinfold/hermes-yandex-disk/badges/coverage.json&v=1)](https://github.com/akinfold/hermes-yandex-disk/actions/workflows/ci.yml)
+[![CodeFactor](https://www.codefactor.io/repository/github/akinfold/hermes-yandex-disk/badge)](https://www.codefactor.io/repository/github/akinfold/hermes-yandex-disk)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/akinfold/hermes-yandex-disk/blob/main/LICENSE)
+
+[Quick start](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#quick-start) · [Features](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#the-tools) · [Configuration](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#configuration) · [Installation](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#installing) · [Security](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#security-and-disclosures)
+
+**Your Yandex Disk, handed to the agent.** It can walk the folders, read a file into the
+conversation, write the answer back, and give you a share link — without you opening a
+browser.
+
+> "Read me the March invoice in /Documents/Accounting."
+> "Save these meeting notes to /Notes/2026/ and give me a link."
+> "What's eating my Disk space? Move the old videos into /Archive."
+> "Restore that file I deleted this morning."
+
+- 🔒 **`YANDEX_DISK_ROOT` sandboxes the agent to one folder of the Disk** — every Disk path is
+  checked against it, including ones the model invents and ones it copies back from an earlier
+  result. Files on your own machine follow Hermes' rules instead: see [Local files](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#local-files).
+- 🛟 **Nothing is overwritten or destroyed by accident** — writes, copies, moves and uploads
+  refuse an existing destination unless you pass `overwrite`, deletes go to the bin by default,
+  and the bin can be restored from. Replacing is never done by clearing the way first: an
+  upload from a `url` is staged beside the target and moved over it once Yandex has finished
+  fetching, and a download writes beside the local file and moves over it once the transfer is
+  complete. A transfer that fails costs you the new copy, never the one you already had.
+- 🎚 **`YANDEX_DISK_ACTIONS` decides what the agent may do at all** — a tool outside the
+  allow-list is never registered, so it cannot be called or talked into being called.
+- 📂 **Fourteen tools over one credential** — browse, read, write, upload, download, copy,
+  move, share and restore, all through the REST API — plus a fifteenth, `yadisk_search`,
+  wherever the token is allowed to use Yandex's search endpoint.
+- 🔑 **One OAuth token, nothing proxied** — the plugin talks to `cloud-api.yandex.net`
+  directly; no third-party service sees your files or your token.
+
+Needs Hermes v2026.9.24 (0.21.5) or later. Checked on every pull request, weekly, and before
+every release against Hermes v2026.9.24, the latest Hermes release and Hermes `main`, each
+installed by its official installer; Python 3.11–3.14.
+
+## Security and disclosures
+
+This is an independent community plugin, not affiliated with Yandex.
+
+- **Network and credentials.** API requests go to `cloud-api.yandex.net`, or
+  the HTTPS endpoint in `YANDEX_DISK_BASE_URL`, with the
+  `YANDEX_DISK_OAUTH_TOKEN` supplied through Hermes. File transfers use the
+  upload and download URLs returned by the API, without sending that token.
+  Unless `YANDEX_DISK_ACTIONS` excludes search, loading the plugin makes one
+  search request to check permission before registering `yadisk_search`.
+- **Account changes.** All permitted tools are exposed by default, including
+  permanent deletion, emptying the bin and creating public share links.
+  Start with `YANDEX_DISK_ACTIONS=read` for read-only access. An upload from a
+  URL asks Yandex to fetch that URL.
+- **Local files.** `yadisk_upload` reads and sends a local file without
+  redaction; `yadisk_download` writes one. Both apply Hermes' shared file-safety
+  rules and the plugin's additional restrictions: upload blocks `.env` files,
+  credential stores, Hermes' own directory and directories holding keys or
+  logins; download blocks credential files, Hermes directories, `.hermes`
+  directories, agent instruction files such as `AGENTS.md`, system locations
+  and paths outside `HERMES_WRITE_SAFE_ROOT`. Other local files remain within
+  reach. `YANDEX_DISK_ROOT` limits Disk paths only. See [Local files](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#local-files)
+  before enabling transfers.
+- **Untrusted content.** File names and contents supplied by other people are
+  returned to the agent as tool output.
+- **Other activity.** The plugin has no telemetry, shell access or background
+  process. It obtains credentials through Hermes and does not maintain a
+  separate credential store.
+
+## Quick start
+
+```bash
+# 1. Install the plugin into Hermes (other ways: see Installing). It asks for
+#    your token; issue one at https://yandex.ru/dev/disk/poligon/
+#    (scopes: cloud_api:disk.info, cloud_api:disk.read, cloud_api:disk.write)
+hermes plugins install akinfold/hermes-yandex-disk/hermes_yandex_disk --enable
+
+# 2. Skipped the question, or installed another way? Add the token yourself:
+echo 'YANDEX_DISK_OAUTH_TOKEN=y0_your_token_here' >> ~/.hermes/.env
+```
+
+```yaml
+# 3. `--enable` already wrote this into ~/.hermes/config.yaml
+plugins:
+  enabled: [yandex-disk]
+```
+
+Restart Hermes and ask it: **"How much space is left on my Yandex Disk?"**
+
+> Not ready to hand over write access? Add `YANDEX_DISK_ACTIONS=read` to `~/.hermes/.env` and
+> the agent gets a read-only Disk. See [Choosing what the agent may do](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#choosing-what-the-agent-may-do).
+
+## The tools
+
+| Tool | What it does |
+|---|---|
+| `yadisk_disk_info` | Quota, used and bin space, account login |
+| `yadisk_list` | List a folder, or show one file's metadata |
+| `yadisk_search` | Find files by name or contents — only where the token may search ([why](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#choosing-what-the-agent-may-do)) |
+| `yadisk_read_file` | Read a text file's contents into the conversation |
+| `yadisk_trash_list` | What is in the bin, and where each item came from |
+| `yadisk_download` | Save a file from the Disk to the local machine ([Local files](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#local-files)) |
+| `yadisk_mkdir` | Create a folder, parents included |
+| `yadisk_write_file` | Create or replace a text file from the agent's own output |
+| `yadisk_upload` | Upload a local file ([Local files](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#local-files)), or have Yandex fetch a public URL |
+| `yadisk_copy` | Server-side copy — no bytes pass through your machine |
+| `yadisk_move` | Move or rename |
+| `yadisk_trash_restore` | Put something back where it was deleted from |
+| `yadisk_publish` | Create or revoke a public share link |
+| `yadisk_delete` | Delete to the bin, or permanently with `permanently=true` |
+| `yadisk_trash_empty` | Destroy one bin item, or the whole bin |
+
+Every read result carries the `path` the write tools take as input, so the agent can chain
+them without guessing.
+
+> **Changed in 0.6.1.** `yadisk_download` no longer writes into Hermes' own directory, a
+> project's `.hermes` directory, the files agents read as instructions or system locations,
+> and `yadisk_upload` no longer sends files from Hermes' own directory or from the
+> directories in your home that hold keys and logins — see [Local files](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#local-files).
+> `YANDEX_DISK_BASE_URL` must now be an `https://` URL.
+
+> **Changed in 0.6.0.** The token is read from `YANDEX_DISK_OAUTH_TOKEN` only: the alias
+> `YANDEX_DISK_API_KEY` is no longer accepted, so if your token is stored under that name,
+> rename it. The plugin now declares that it needs Hermes v2026.9.24 (0.21.5) or later: an
+> older Hermes that checks the floor (v2026.9.11 on) skips it at load, and earlier ones are
+> not supported. And `yadisk_upload` and `yadisk_download` refuse the local files Hermes' own
+> file tools refuse — see [Local files](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#local-files).
+
+> **Changed in 0.5.0.** `yadisk_upload` from a `url` used to ignore `overwrite`. Yandex'
+> fetch-from-internet endpoint has no such parameter and the plugin did not stand in for it,
+> so an upload onto a path that was already taken did whatever the server decided — the API
+> documentation does not say what. It is now refused unless you pass `overwrite=true`, the
+> same as every other write. If anything of yours uploads by URL over a file that is already
+> there, add the flag before upgrading.
+
+## Configuration
+
+| Variable | Required | Default | Meaning |
+|---|---|---|---|
+| `YANDEX_DISK_OAUTH_TOKEN` | yes | — | OAuth token for the account |
+| `YANDEX_DISK_ACTIONS` | no | all tools | Which tools get registered — see below |
+| `YANDEX_DISK_ROOT` | no | whole disk | Confine every Disk path to this folder (local paths are unaffected) |
+| `YANDEX_DISK_MAX_READ_BYTES` | no | `1048576` | Largest file `yadisk_read_file` will pull into context |
+| `YANDEX_DISK_MAX_DOWNLOAD_BYTES` | no | `268435456` | Largest file `yadisk_download` will write locally |
+| `YANDEX_DISK_TIMEOUT` | no | `30` | Per-request timeout, in seconds |
+| `YANDEX_DISK_BASE_URL` | no | `https://cloud-api.yandex.net/v1/disk` | API base, for testing against a stub. It must be an `https://` URL; the token goes to whatever host it names |
+
+Put them in `~/.hermes/.env` — Hermes reads it in gateway and subprocess runs too — or export
+them in the environment.
+
+The two byte limits take a whole number of bytes and the timeout a number of seconds, fractions
+allowed. A value that is not a number, or is zero or negative — `5MB`, `60s`, `0` — is ignored
+without an error and the default applies.
+
+Two further limits are fixed and cannot be configured. A request answered with 429, 500, 502,
+503 or 504, or one that fails to connect, is retried up to three times (honouring `Retry-After`,
+capped at 30 seconds), so a single call can take longer than `YANDEX_DISK_TIMEOUT`. Large copies,
+moves, deletes, restores and bin operations run as deferred operations on Yandex's side; the
+plugin waits up to 60 seconds for one to finish and then reports that it is still being
+processed. Such an operation usually completes on its own, so check with `yadisk_list` before
+retrying.
+
+### Confining the agent to one folder
+
+```dotenv
+YANDEX_DISK_ROOT=/Hermes
+```
+
+Every path the agent gives is then interpreted relative to `disk:/Hermes`, and anything that
+resolves outside it — an absolute `disk:/Private/...`, a `../` climb, a path pasted from
+somewhere else — is refused before a request is made. Results are rewritten so the agent never
+sees the prefix: every path it gets back is relative to that folder — `disk:/Hermes/notes.md`
+comes back as `/notes.md` — and can be handed straight to the next tool. The agent sees a disk
+whose root *is* that folder. The bin is filtered the same way: items deleted from outside the
+sandbox are neither listed nor restorable, and emptying the whole bin is refused, because the
+bin is shared with the rest of the account.
+
+### Local files
+
+Two tools reach past the Disk to the machine Hermes runs on: `yadisk_upload` with a
+`local_path` reads a file there and sends it to Yandex, and `yadisk_download` writes one there.
+A relative path is taken from the directory the Hermes process runs in, and `~` is expanded.
+`YANDEX_DISK_ROOT` does not apply to these paths.
+
+Two sets of rules decide which local paths they may touch, and either one can refuse.
+
+The first set is Hermes' own, the rules its file tools share. An upload is refused for Hermes'
+credential stores (`.env`, `auth.json` and the like) and for any `.env` file anywhere. A
+download is refused onto credential files (Hermes' `.env`, SSH and cloud-provider keys and
+logins, and so on), into Hermes' session and token directories, onto your SSH client
+configuration (Hermes' file tools write that only with a person's approval, which a tool
+cannot ask for), and outside `HERMES_WRITE_SAFE_ROOT` when you have set it. Hermes does not
+document these rules for plugins, so a Hermes release could move them; the plugin then falls
+back to refusing `.env` files in both directions, as it does outside Hermes.
+
+The second set is the plugin's own, because Hermes' file tools check more than those shared
+rules, and because sending a file off the machine is not the same as reading it into the
+conversation:
+
+- **Nothing is uploaded** from Hermes' own directory (`~/.hermes`, or `HERMES_HOME` and the
+  root above its profiles), where the configuration, sessions and memories live, or from the
+  directories in your home that hold keys and logins: SSH, AWS, GnuPG, Kubernetes, Docker,
+  Azure, and the GitHub and Google Cloud command-line tools.
+- **Nothing is downloaded** into Hermes' own directory, where its configuration, profiles,
+  plugins and skills live; into a project's `.hermes` directory; over a file agents read as
+  instructions for later sessions (`AGENTS.md`, `CLAUDE.md`, `SOUL.md`, `.cursorrules`, in any
+  directory and any letter case), which Hermes' file tools only write with a person's
+  approval; or into system locations such as `/etc`.
+- The `home` and `workspace` folders in Hermes' own directory, where the official Docker
+  image puts the agent's home and work, are the agent's: both tools may use them, under the
+  other rules.
+
+Symlinks are followed before either set is applied, so a link elsewhere does not get a file
+past them.
+
+Together they keep the agent from being talked into sending your keys or Hermes' state to the
+Disk, or into replacing Hermes' configuration and instructions from it. They are not a sandbox:
+any other local file the Hermes process can read can be uploaded, and anything else the agent
+runs as your user, a terminal for one, reaches the same files. To keep the agent off local
+files altogether, leave `download` and `upload` out of `YANDEX_DISK_ACTIONS`. The `write`
+group includes `upload`, so name its other tools one by one:
+
+```dotenv
+YANDEX_DISK_ACTIONS=read,mkdir,write_file,copy,move,trash_restore
+```
+
+### Choosing what the agent may do
+
+```dotenv
+YANDEX_DISK_ACTIONS=read,write      # no deleting, no sharing
+YANDEX_DISK_ACTIONS=read            # a read-only Disk
+YANDEX_DISK_ACTIONS=list,read_file  # exactly two tools
+```
+
+| Group | Tools |
+|---|---|
+| `read` | `disk_info`, `list`, `read_file`, `trash_list`, and `search` when the token may use it |
+| `download` | `download` (writes to the **local** machine) |
+| `write` | `mkdir`, `write_file`, `upload`, `copy`, `move`, `trash_restore` |
+| `share` | `publish` |
+| `delete` | `delete`, `trash_empty` |
+| `all` | everything — the default when the variable is unset |
+
+`search` is capability-gated: Yandex grants its search endpoint per application rather than
+per token scope, so the plugin probes it once at load and registers the tool only if the probe
+succeeds. Granting `read` therefore also grants a whole-disk search wherever the token is
+allowed to run one; name the tools individually to withhold it. The probe is one request that
+waits two seconds at most, because Hermes gives a plugin ten seconds to load and drops every
+tool of one that takes longer: if Yandex does not answer in time, search is simply missing
+until the next start.
+
+Groups and individual tool names mix freely, with or without the `yadisk_` prefix, so you can
+paste straight from the tool table above. A name that matches nothing is dropped: a typo can
+only ever withhold a tool, never grant one, and a value naming nothing valid (`none`, say)
+registers nothing at all. An empty or blank value counts as unset and therefore registers
+every tool. Filtering happens when the plugin loads, so **restart Hermes** after changing it.
+
+## Getting the credential
+
+1. Open <https://yandex.ru/dev/disk/poligon/> signed in as the account you want the agent to
+   use, and issue a debug token — the fastest route, and what it gives you is an ordinary
+   OAuth token.
+2. For a long-lived setup, register an app at <https://oauth.yandex.ru/> with the scopes
+   `cloud_api:disk.info`, `cloud_api:disk.read` and `cloud_api:disk.write`, then run the usual
+   OAuth flow.
+
+Yandex Disk is free up to 5 GB and the API costs nothing to use. The token is the only
+credential needed — see [Why REST and not WebDAV](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#why-rest-and-not-webdav) for why there is
+no app password to store.
+
+## Installing
+
+**A. From Git (recommended)**
+
+```bash
+hermes plugins install akinfold/hermes-yandex-disk/hermes_yandex_disk --enable
+```
+
+Note the `/hermes_yandex_disk` at the end. The plugin lives in that directory, not
+at the repository root, and Hermes reads the manifest from whatever you point it
+at. Name the directory and the install is a plugin: Hermes prompts for
+`YANDEX_DISK_OAUTH_TOKEN`, installs under the manifest name `yandex-disk`, and
+`--enable` enables that name. It also scans only that directory, so the tests and
+workflows in this repository stay out of the security report.
+
+Point it at the repository root instead and Hermes copies a directory with no
+manifest and no `register(ctx)` in it: it warns that it "may not be a valid Hermes
+plugin", asks for no token, and does not enable the plugin. `hermes plugins list`
+then still shows `yandex-disk` — the package nested in the clone is found — but
+shows it as **not enabled**, which is the symptom to look for. If you installed
+that way, remove `~/.hermes/plugins/hermes-yandex-disk` and install again with the
+directory named.
+
+**B. From PyPI** — for a Hermes whose Python environment you manage yourself (your own
+virtualenv, a Nix build): install `hermes-yandex-disk` into that environment, then enable the
+plugin. Hermes finds it through the `hermes_agent.plugins` entry point.
+
+```bash
+hermes plugins enable yandex-disk
+```
+
+**Not for a standard Hermes install.** Since 24 September 2026 the official installer runs
+Hermes from environments its package manager builds and replaces, and Hermes does not support
+adding packages to them by hand: use A or C.
+
+A Hermes in the older layout — one that runs from `~/.hermes/hermes-agent/venv` and keeps its
+own `uv` in `~/.hermes/bin`, with no `~/.hermes/installs` — takes the package like this:
+
+```bash
+~/.hermes/bin/uv pip install --python ~/.hermes/hermes-agent/venv/bin/python hermes-yandex-disk
+hermes plugins enable yandex-disk
+```
+
+That layout is what the installer of Hermes v2026.9.24, the last release to build it, sets
+up, and what anything installed before that date and not updated since looks like. Tell it by
+those directories, not by the version number Hermes reports.
+
+Switch such an install to A before you run `hermes update`: the update moves Hermes onto the
+new environments, and a package installed this way does not come along. The loss is silent:
+`yandex-disk` stays enabled in the configuration, but its tools are gone, and neither the
+update nor `hermes doctor` mentions it. If you have already updated, install it with A now:
+that brings the tools back and keeps your token in `~/.hermes/.env`. A bare
+`pip install hermes-yandex-disk` never reached Hermes at all — the `pip` on your `PATH` belongs
+to some other Python.
+
+Nothing asks for the token on this path — add it to `~/.hermes/.env` as in the
+[Quick start](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#quick-start).
+
+**C. Drop-in** — download `hermes-yandex-disk-plugin-<version>.zip` from a
+[release](https://github.com/akinfold/hermes-yandex-disk/releases), then unzip it into
+`~/.hermes/plugins/` and enable it:
+
+```bash
+unzip hermes-yandex-disk-plugin-<version>.zip -d ~/.hermes/plugins/
+hermes plugins enable yandex-disk
+```
+
+You should end up with `~/.hermes/plugins/yandex-disk/plugin.yaml`. Nothing asks for the
+token here either: add it to `~/.hermes/.env` yourself. The archive brings no dependencies;
+the one the plugin needs, `httpx`, is a Hermes dependency already.
+
+### Upgrading
+
+Upgrade the way you installed. From Git (A), Hermes installs the new version from the source it
+recorded:
+
+```bash
+hermes plugins update yandex-disk
+```
+
+Running the install command again with `--force` does the same by another route: it installs
+what the default branch holds now, replaces the installed copy, and keeps your token. A Hermes
+older than v2026.9.24 (0.21.5) cannot update an install from a plugin directory, and from 0.6.0
+on the plugin does not support it either: update Hermes first.
+
+```bash
+hermes plugins install akinfold/hermes-yandex-disk/hermes_yandex_disk --enable --force
+```
+
+An install pinned to a commit with `--ref` stays on that commit through both:
+`hermes plugins update` refuses to move it, and `--force` without a new `--ref` installs the
+same commit again. `hermes plugins list` shows the pin in its Source column, as `git pinned@`
+and the first eight characters of the commit. To move it, run the install command with
+`--force` and the new commit, its full 40-character SHA, in place of `<commit>`:
+
+```bash
+hermes plugins install akinfold/hermes-yandex-disk/hermes_yandex_disk --enable --force --ref <commit>
+```
+
+Each of these scans the new version again. Unlike a first install, none of them stops to ask
+when Hermes' security scan reports a caution: for an install from a plugin directory, as here,
+they accept it and go on. A dangerous verdict still stops them.
+
+Drop-in (C): unzip the new release's archive over the old one:
+
+```bash
+unzip -o hermes-yandex-disk-plugin-<version>.zip -d ~/.hermes/plugins/
+```
+
+From PyPI (B): upgrade the package in the same environment — in the older layout:
+
+```bash
+~/.hermes/bin/uv pip install --upgrade --python ~/.hermes/hermes-agent/venv/bin/python hermes-yandex-disk
+```
+
+A and C and their upgrades, moving a pinned install included, are checked before every
+release by installing the build into a real Hermes exactly as written here: Hermes v2026.9.24,
+the latest release, and `main`, each set up by its own official installer. The B install is
+checked against Hermes v2026.9.24, the last release whose installer builds the older layout.
+See [Checking the install paths](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#checking-the-install-paths).
+
+## Why REST and not WebDAV
+
+Yandex Disk exposes both a REST API and a WebDAV endpoint. This plugin is REST-only, because
+WebDAV covers strictly less: no bin, no public links, and no reporting for the deferred
+operations that large folder copies and deletes turn into.
+rclone's Yandex backend made the same call. The one thing WebDAV adds — an app-password login
+— is not worth a second stored credential for capabilities the REST API already has.
+
+## Development
+
+```bash
+python -m venv .venv && . .venv/bin/activate
+pip install -e '.[dev]'
+
+pytest --cov=hermes_yandex_disk --cov-report=term-missing   # unit tests, no network
+ruff check . && ruff format --check .
+radon cc -s -n C hermes_yandex_disk                         # must print nothing
+```
+
+## Running the live E2E tests
+
+> These create, publish and permanently delete real files. **Use a throwaway Yandex account.**
+> Each test works inside its own `hermes-e2e-<id>` folder, permanently deleted in
+> teardown even when the test fails. Two things reach outside it: the bin tests pass
+> their files through the account-wide bin and remove their own entries, and — only
+> when the token is allowed to search — one test creates a single marker file in the
+> disk root and permanently deletes it again.
+
+Locally, put the token in `~/.yandex-disk-oauth` (and optionally the login in
+`~/.yandex-disk-login`) and run:
+
+```bash
+pytest -m e2e -v
+```
+
+The suite skips itself when no credentials are available, and an environment variable wins over
+the file: `YANDEX_DISK_OAUTH_TOKEN` for the token and, optionally, `YANDEX_DISK_E2E_LOGIN` for the
+account login the tests check `yadisk_disk_info` against. On GitHub Actions, run the **E2E (live)**
+workflow manually; it reads the secrets `YANDEX_DISK_OAUTH_TOKEN` and, optionally,
+`YANDEX_DISK_E2E_LOGIN` from the `yandex-disk-e2e` environment. It runs the plugin inside a real
+Hermes, installed by its official installer, so the real credential resolver is exercised: the
+latest Hermes release by default, and its `hermes` input switches to Hermes `main` or to no
+Hermes at all. With Hermes, the tests run in Hermes' own Python, with this checkout on its
+path rather than installed into Hermes' environment, and the run fails outright if the plugin
+cannot import Hermes, rather than testing the plugin's stand-ins instead.
+
+## Checking the install paths
+
+The `install`-marked tests in `tests/install/` install the built plugin into a real Hermes,
+set up by its official installer, by each route in [Installing](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#installing) — running the
+README's own commands, upgrades included — and then ask Hermes what it loaded: the plugin
+must be listed as enabled, load without error, and give the agent its tools. They also check
+that installing from the repository root still looks the way this README describes. A fast
+unit test keeps the commands in the tests and in this README identical.
+
+The **Install check** workflow runs them against Hermes v2026.9.24, the last release in the
+older layout, against the latest Hermes release, and against Hermes `main` — on every pull
+request, once a week, and on every release tag before anything is published: the GitHub
+Release and the PyPI upload both wait for it. They install into a real `~/.hermes`, so run
+them yourself only in a container or VM — see the docstring of
+`tests/install/test_install.py`.
+
+## Related Hermes plugins
+
+Part of a family of Yandex plugins for Hermes Agent:
+
+- [hermes-yandex-mail](https://github.com/akinfold/hermes-yandex-mail) — search, read, flag, move, and delete Yandex Mail messages over IMAP, and send over SMTP when sending is switched on.
+- [hermes-yandex-calendar](https://github.com/akinfold/hermes-yandex-calendar) — list, create, update, respond to, move, and delete Yandex Calendar events (CalDAV).
+- [hermes-yandex-search-api](https://github.com/akinfold/hermes-yandex-search-api) — Yandex web search backend and generative, cited answers for Hermes (Yandex Search API).
+
+## Contributing
+
+See [CONTRIBUTING.md](https://github.com/akinfold/hermes-yandex-disk/blob/main/CONTRIBUTING.md). Please report security issues privately rather than as
+a public issue.
+
+## License
+
+MIT — see [LICENSE](https://github.com/akinfold/hermes-yandex-disk/blob/main/LICENSE).
