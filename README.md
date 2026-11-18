@@ -1,14 +1,8 @@
-![Yandex Disk for Hermes Agent](https://raw.githubusercontent.com/akinfold/hermes-yandex-disk/main/docs/banner.png)
+![Yandex Disk for Hermes Agent](https://raw.githubusercontent.com/akinfold/hermes-yandex-disk/354629c7f334ab66fd315fc0166938e3cb1a2fba/docs/banner.jpg)
 
 # Yandex Disk for Hermes Agent
 
-[![PyPI version](https://img.shields.io/pypi/v/hermes-yandex-disk.svg)](https://pypi.org/project/hermes-yandex-disk/)
-[![CI](https://github.com/akinfold/hermes-yandex-disk/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/akinfold/hermes-yandex-disk/actions/workflows/ci.yml)
-[![E2E (live)](https://github.com/akinfold/hermes-yandex-disk/actions/workflows/e2e.yml/badge.svg)](https://github.com/akinfold/hermes-yandex-disk/actions/workflows/e2e.yml)
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/akinfold/hermes-yandex-disk/badges/coverage.json&v=1)](https://github.com/akinfold/hermes-yandex-disk/actions/workflows/ci.yml)
-[![CodeFactor](https://www.codefactor.io/repository/github/akinfold/hermes-yandex-disk/badge)](https://www.codefactor.io/repository/github/akinfold/hermes-yandex-disk)
-[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/akinfold/hermes-yandex-disk/blob/main/LICENSE)
+[![PyPI version](https://img.shields.io/pypi/v/hermes-yandex-disk.svg)](https://pypi.org/project/hermes-yandex-disk/) [![CI](https://github.com/akinfold/hermes-yandex-disk/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/akinfold/hermes-yandex-disk/actions/workflows/ci.yml) [![E2E (live)](https://github.com/akinfold/hermes-yandex-disk/actions/workflows/e2e.yml/badge.svg)](https://github.com/akinfold/hermes-yandex-disk/actions/workflows/e2e.yml) [![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/akinfold/hermes-yandex-disk/badges/coverage.json&v=1)](https://github.com/akinfold/hermes-yandex-disk/actions/workflows/ci.yml) [![CodeFactor](https://www.codefactor.io/repository/github/akinfold/hermes-yandex-disk/badge)](https://www.codefactor.io/repository/github/akinfold/hermes-yandex-disk) [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/akinfold/hermes-yandex-disk/blob/main/LICENSE)
 
 [Quick start](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#quick-start) · [Features](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#the-tools) · [Configuration](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#configuration) · [Installation](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#installing) · [Security](https://github.com/akinfold/hermes-yandex-disk/blob/main/README.md#security-and-disclosures)
 
