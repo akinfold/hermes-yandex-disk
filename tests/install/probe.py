@@ -24,6 +24,8 @@ from __future__ import annotations
 import json
 import logging
 import traceback
+from pathlib import Path
+from unittest.mock import patch
 
 
 def _report() -> dict:
@@ -44,6 +46,17 @@ def _report() -> dict:
         name = definition["function"]["name"]
         entry = registry.get_entry(name)
         tools[name] = entry.toolset if entry else None
+
+    if "yadisk_download" in tools:
+        download = registry.get_entry("yadisk_download")
+        target = Path.home() / ".hermes" / ".env"
+        before = target.read_bytes()
+        with patch("httpx.Client.send", side_effect=AssertionError("Unexpected HTTP request")):
+            reply = download.handler(
+                {"path": "/probe.txt", "save_to": str(target), "overwrite": True}
+            )
+        assert "Write denied" in json.loads(reply).get("error", ""), reply
+        assert target.read_bytes() == before
     return {"plugins": plugins, "tools": tools}
 
 
