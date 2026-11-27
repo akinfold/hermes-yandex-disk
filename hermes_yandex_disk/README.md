@@ -146,9 +146,10 @@ them without guessing.
 Put them in `~/.hermes/.env` — Hermes reads it in gateway and subprocess runs too — or export
 them in the environment.
 
-On Hermes 0.23.4 or later, run `hermes plugins config yandex-disk` in a terminal
-to update the OAuth token. Hermes saves these values in the
-active profile's `.env` file.
+On Hermes 0.23.4 or later, if you installed the plugin with `hermes plugins install`
+or copied it into the plugins directory, run `hermes plugins config yandex-disk`
+in a terminal to update the OAuth token. Hermes saves the
+values in the active profile's `.env` file. For PyPI installs, edit that file directly.
 
 The two byte limits take a whole number of bytes and the timeout a number of seconds, fractions
 allowed. A value that is not a number, or is zero or negative — `5MB`, `60s`, `0` — is ignored
